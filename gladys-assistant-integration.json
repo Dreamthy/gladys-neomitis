@@ -1,0 +1,65 @@
+{
+  "manifest_version": 1,
+  "type": "device",
+  "name": "MyNeomitis (Axenco)",
+  "description": {
+    "en": "Control your Neomitis / Axenco heaters and thermostats from Gladys.",
+    "fr": "Pilotez vos radiateurs et thermostats Neomitis / Axenco depuis Gladys."
+  },
+  "version": "1.0.0",
+  "docker_image": "ghcr.io/dreamthy/gladys-neomitis:1.0.0",
+  "gladys_version": ">=4.62.0",
+  "cover_image": "https://raw.githubusercontent.com/Dreamthy/gladys-neomitis/main/cover.png",
+  "transports": ["cloud"],
+  "config_schema": [
+    {
+      "key": "intro",
+      "type": "section",
+      "label": { "en": "Your MyNeomitis account", "fr": "Votre compte MyNeomitis" },
+      "description": {
+        "en": "Use the same email address and password as the MyNeomitis mobile app. The integration talks to the Axenco cloud: your heaters must already be paired in the app.",
+        "fr": "Utilisez la même adresse e-mail et le même mot de passe que l'application mobile MyNeomitis. L'intégration passe par le cloud Axenco : vos radiateurs doivent déjà être appairés dans l'application."
+      },
+      "links": [
+        {
+          "url": "https://www.neomitis.com/",
+          "label": { "en": "Neomitis website", "fr": "Site Neomitis" }
+        }
+      ]
+    },
+    {
+      "key": "email",
+      "type": "string",
+      "label": { "en": "Email address", "fr": "Adresse e-mail" },
+      "description": {
+        "en": "The email address of your MyNeomitis account.",
+        "fr": "L'adresse e-mail de votre compte MyNeomitis."
+      },
+      "placeholder": { "en": "you@example.com", "fr": "vous@exemple.com" },
+      "required": true
+    },
+    {
+      "key": "password",
+      "type": "secret",
+      "label": { "en": "Password", "fr": "Mot de passe" },
+      "description": {
+        "en": "The password of your MyNeomitis account.",
+        "fr": "Le mot de passe de votre compte MyNeomitis."
+      },
+      "required": true
+    },
+    {
+      "key": "refresh_interval",
+      "type": "number",
+      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "description": {
+        "en": "Safety net: updates normally arrive in real time, this is how often the full state is re-read anyway.",
+        "fr": "Filet de sécurité : les mises à jour arrivent normalement en temps réel, ceci est la fréquence de relecture complète malgré tout."
+      },
+      "required": false,
+      "default": 300,
+      "min": 60,
+      "max": 3600
+    }
+  ]
+}

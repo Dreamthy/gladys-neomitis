@@ -1,0 +1,15 @@
+node_modules/
+npm-debug.log*
+.env
+.env.*
+data/
+*.log
+
+# Editor / assistant settings, not part of the integration.
+.claude/
+.DS_Store
+
+# Upstream sources kept locally for porting reference (the Home Assistant
+# `myneomitis` integration and `pyaxencoapi`). Not ours to redistribute, and
+# not needed to build or run this integration.
+reference/
