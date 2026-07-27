@@ -66,6 +66,86 @@ export const SETPOINT_FEATURES = [
 ];
 
 /**
+ * Read-only sensors every Axenco device already reports in its state. They cost
+ * nothing: the values ride along with the device list and with every WebSocket
+ * push, so there is no extra API call and no rate-limit pressure beyond the
+ * deduplication that already applies.
+ *
+ * Neither `pyaxencoapi` nor the Home Assistant integration exposes any of them.
+ *
+ * `read` converts the Axenco representation to what Gladys stores: booleans
+ * become 0/1, numbers pass through. A sensor appears only when the device
+ * actually reports the field — no assumption per model, and being read-only
+ * there is no risk in exposing one that turns out to be meaningless.
+ */
+export const SENSOR_FEATURES = [
+  {
+    key: 'signal',
+    stateKey: 'rssi',
+    name: 'Signal',
+    category: DEVICE_FEATURE_CATEGORIES.SIGNAL,
+    type: DEVICE_FEATURE_TYPES.SIGNAL.QUALITY,
+    unit: DEVICE_FEATURE_UNITS.DECIBEL,
+    // Gladys draws antenna bars by mapping min..max onto 0..5 levels
+    // (`getSignalQualityLevel`), so the bounds have to be the useful dBm range
+    // rather than a raw integer range, or every device would show full bars.
+    min: -100,
+    max: -30,
+    keepHistory: true,
+    read: (value) => value,
+  },
+  {
+    key: 'presence',
+    stateKey: 'occupancyStatus',
+    name: 'Présence',
+    category: DEVICE_FEATURE_CATEGORIES.PRESENCE_SENSOR,
+    type: DEVICE_FEATURE_TYPES.SENSOR.BINARY,
+    min: 0,
+    max: 1,
+    keepHistory: true,
+    read: (value) => (value ? 1 : 0),
+  },
+  {
+    key: 'open-window',
+    stateKey: 'windowStatus',
+    name: 'Fenêtre ouverte',
+    category: DEVICE_FEATURE_CATEGORIES.OPENING_SENSOR,
+    type: DEVICE_FEATURE_TYPES.SENSOR.BINARY,
+    min: 0,
+    max: 1,
+    keepHistory: true,
+    read: (value) => (value ? 1 : 0),
+  },
+  {
+    key: 'child-lock',
+    stateKey: 'keylock',
+    name: 'Verrouillage clavier',
+    category: DEVICE_FEATURE_CATEGORIES.CHILD_LOCK,
+    type: DEVICE_FEATURE_TYPES.CHILD_LOCK.BINARY,
+    min: 0,
+    max: 1,
+    keepHistory: false,
+    // Read-only on purpose: the field is reported, but nothing proves it can
+    // be written, and this session showed that reporting is not accepting.
+    read: (value) => (value ? 1 : 0),
+  },
+  {
+    key: 'fault',
+    stateKey: 'faultSystem',
+    name: 'Défaut système',
+    category: DEVICE_FEATURE_CATEGORIES.RISK,
+    type: DEVICE_FEATURE_TYPES.RISK.INTEGER,
+    // Published as the raw integer rather than collapsed to a boolean: 0 is
+    // "no fault" on every device seen, and a non-zero value may well be a code
+    // or a bit mask, which flattening would destroy.
+    min: 0,
+    max: 65535,
+    keepHistory: false,
+    read: (value) => value,
+  },
+];
+
+/**
  * @description Find the setpoint a feature key drives, if any.
  * @param {string} featureKey - A feature key.
  * @returns {object|null} The `SETPOINT_FEATURES` entry, or null.
@@ -228,6 +308,28 @@ export function buildFeatures({ ids, profile, presetKeys, state }) {
         }),
       );
     }
+  }
+
+  // The read-only sensors the device already reports. Any device, including
+  // sub-devices: nothing is written, so there is no routing to get wrong.
+  for (const sensor of SENSOR_FEATURES) {
+    if (state[sensor.stateKey] === undefined) {
+      continue;
+    }
+    features.push(
+      withSelector({
+        name: sensor.name,
+        external_id: ids.feature(sensor.key),
+        category: sensor.category,
+        type: sensor.type,
+        ...(sensor.unit ? { unit: sensor.unit } : {}),
+        min: sensor.min,
+        max: sensor.max,
+        read_only: true,
+        has_feedback: false,
+        keep_history: sensor.keepHistory,
+      }),
+    );
   }
 
   // A two-preset model (UFH heating/cooling) is a genuine binary, and a NTD

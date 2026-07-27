@@ -76,6 +76,14 @@ comme Home Assistant.
   été observée.
 - **Rafraîchissement** — interrupteur chauffage/rafraîchissement, réglable sur
   `UFH`, en lecture seule sur `NTD`.
+- **Capteurs en lecture seule** — **Signal** (qualité de réception, en barres
+  d'antenne), **Présence**, **Fenêtre ouverte**, **Verrouillage clavier** et
+  **Défaut système**. Ces valeurs voyagent déjà dans l'état que l'appareil
+  envoie : aucun appel supplémentaire, aucun réglage à faire. Chaque appareil
+  n'expose que celles qu'il rapporte réellement. Le défaut système est publié
+  tel quel — 0 signifie « aucun défaut » sur tous les appareils observés, une
+  valeur non nulle est probablement un code. Ni `pyaxencoapi` ni l'intégration
+  Home Assistant ne les exposent.
 
 Les interrupteurs de mode sont **exclusifs** : en activer un envoie ce mode à
 Axenco et éteint les autres dans la foulée. Les **éteindre** directement ne

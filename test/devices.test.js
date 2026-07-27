@@ -131,6 +131,80 @@ test('an EWS has no temperature feature: the module has no sensor', () => {
   assert.ok(!featureNames(pilot).some((name) => name.startsWith('Température')));
 });
 
+test('the free sensors appear only when the device reports them', () => {
+  // Read-only, straight out of the state Axenco already sends: no extra call.
+  const entry = describe_(
+    axencoThermostat({
+      state: {
+        targetMode: 1,
+        rssi: -69,
+        occupancyStatus: false,
+        windowStatus: true,
+        keylock: false,
+        faultSystem: 0,
+      },
+    }),
+  );
+  const names = featureNames(entry);
+  for (const name of [
+    'Signal',
+    'Présence',
+    'Fenêtre ouverte',
+    'Verrouillage clavier',
+    'Défaut système',
+  ]) {
+    assert.ok(names.includes(name), `${name} should be exposed`);
+  }
+  for (const feature of entry.gladysDevice.features.filter((f) =>
+    ['Signal', 'Présence', 'Fenêtre ouverte', 'Verrouillage clavier', 'Défaut système'].includes(
+      f.name,
+    ),
+  )) {
+    assert.equal(feature.read_only, true, `${feature.name} must stay read-only`);
+  }
+
+  // A device reporting none of them gets none of them.
+  const bare = describe_(axencoThermostat({ state: { targetMode: 1 } }));
+  assert.ok(!featureNames(bare).includes('Signal'));
+  assert.ok(!featureNames(bare).includes('Présence'));
+});
+
+test('booleans become 0/1 and numbers pass through', () => {
+  const entry = describe_(
+    axencoThermostat({
+      state: {
+        targetMode: 1,
+        rssi: -69,
+        occupancyStatus: false,
+        windowStatus: true,
+        faultSystem: 0,
+      },
+    }),
+  );
+  const states = buildStates(entry, {
+    rssi: -52,
+    occupancyStatus: true,
+    windowStatus: false,
+    faultSystem: 3,
+  });
+
+  assert.equal(stateFor(states, entry, 'signal').state, -52);
+  assert.equal(stateFor(states, entry, 'presence').state, 1);
+  assert.equal(stateFor(states, entry, 'open-window').state, 0);
+  // A fault code is published as-is: flattening it to a boolean would destroy
+  // whatever the value encodes.
+  assert.equal(stateFor(states, entry, 'fault').state, 3);
+});
+
+test('the signal bounds are the useful dBm range, not a raw integer range', () => {
+  // Gladys maps min..max onto 0-5 antenna bars, so 0..100 would show every
+  // device at full strength.
+  const entry = describe_(axencoThermostat({ state: { targetMode: 1, rssi: -69 } }));
+  const signal = entry.gladysDevice.features.find((f) => f.name === 'Signal');
+  assert.deepEqual([signal.min, signal.max], [-100, -30]);
+  assert.equal(signal.unit, 'decibel');
+});
+
 test('a sub-device keeps its gateway and rfid for command routing', () => {
   const entry = describe_(axencoSubDevice());
   assert.equal(entry.gateway, '65f0000000000000000000ff');

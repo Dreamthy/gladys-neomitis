@@ -21,6 +21,7 @@ import { profileFor } from './profiles.js';
 import {
   DEVICE_TYPE,
   FEATURE,
+  SENSOR_FEATURES,
   SETPOINT_FEATURES,
   buildFeatures,
   presetFeatureKey,
@@ -150,6 +151,12 @@ export function buildStates(entry, patch) {
       if (isNumber(patch[setpoint.stateKey])) {
         push(setpoint.key, patch[setpoint.stateKey]);
       }
+    }
+  }
+
+  for (const sensor of SENSOR_FEATURES) {
+    if (patch[sensor.stateKey] !== undefined) {
+      push(sensor.key, sensor.read(patch[sensor.stateKey]));
     }
   }
 

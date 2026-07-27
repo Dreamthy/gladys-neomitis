@@ -74,6 +74,13 @@ Home Assistant does.
   reason, sub-devices because the rfid-keyed payload has never been observed.
 - **Rafraîchissement** — heating/cooling switch, writable on `UFH`, read-only
   on `NTD`.
+- **Read-only sensors** — **Signal** (reception quality, drawn as antenna
+  bars), **Présence**, **Fenêtre ouverte**, **Verrouillage clavier** and
+  **Défaut système**. These values already travel in the state the device
+  sends: no extra call, nothing to configure. A device only exposes the ones it
+  actually reports. The system fault is published as-is — 0 means "no fault" on
+  every device seen, a non-zero value is likely a code. Neither `pyaxencoapi`
+  nor the Home Assistant integration exposes them.
 
 Feature names are in French, matching the MyNeomitis app and the Neomitis
 product range.
