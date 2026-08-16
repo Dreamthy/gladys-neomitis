@@ -17,6 +17,30 @@ test('the manifest carries every field the store validates', () => {
   assert.deepEqual(manifest.transports, ['cloud']);
 });
 
+test('the store catalog categories stay inside the controlled vocabulary', () => {
+  // Declaring `categories` is what forces the >=4.86.0 floor above.
+  const vocabulary = [
+    'climate',
+    'lighting',
+    'energy',
+    'security',
+    'multimedia',
+    'appliances',
+    'environment',
+    'protocols',
+    'network',
+    'notifications',
+    'assistants',
+    'services',
+  ];
+  assert.ok(Array.isArray(manifest.categories));
+  assert.ok(manifest.categories.length >= 1 && manifest.categories.length <= 3);
+  assert.equal(new Set(manifest.categories).size, manifest.categories.length, 'no duplicates');
+  for (const category of manifest.categories) {
+    assert.ok(vocabulary.includes(category), `unknown category: ${category}`);
+  }
+});
+
 test('descriptions are multi-language and within the 10-100 character range', () => {
   for (const language of ['en', 'fr']) {
     const text = manifest.description[language];
