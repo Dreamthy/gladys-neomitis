@@ -8,11 +8,10 @@
   },
   "version": "1.0.1",
   "docker_image": "ghcr.io/dreamthy/gladys-neomitis:1.0.1",
-  "gladys_version": ">=4.62.0",
+  "gladys_version": ">=4.86.0",
   "cover_image": "https://raw.githubusercontent.com/Dreamthy/gladys-neomitis/main/cover.png",
-  "transports": [
-    "cloud"
-  ],
+  "categories": ["climate", "environment"],
+  "transports": ["cloud"],
   "config_schema": [
     {
       "key": "intro",
