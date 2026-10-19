@@ -18,6 +18,7 @@ import {
 import { extractGatewayId } from '../axenco/utils.js';
 import { selectorFromExternalId } from '../selector.js';
 import { profileFor } from './profiles.js';
+import { STANDARD, PILOT_PRESETS, binary, validateTemperature } from './standard.js';
 import {
   DEVICE_TYPE,
   FEATURE,
@@ -42,7 +43,7 @@ export { DEVICE_TYPE, FEATURE } from './features.js';
  * @example
  * const entry = describeDevice(gladys, axencoDevice);
  */
-export function describeDevice(gladys, axencoDevice) {
+export function describeDevice(gladys, axencoDevice, options = {}) {
   const profile = profileFor(axencoDevice.model);
   // Two lists on purpose: every preset the model can REPORT (to decode a mode
   // into a label) and the subset a user can actually SELECT (the switches).
@@ -72,13 +73,22 @@ export function describeDevice(gladys, axencoDevice) {
     gateway,
     rfid: axencoDevice.rfid,
     state,
+    observedState: { ...state },
+    windowOpenValue: options.windowOpenValue ?? null,
     connected: Boolean(axencoDevice.connected),
     gladysDevice: {
       name: axencoDevice.name || axencoDevice._id,
       external_id: ids.device,
       selector: selectorFromExternalId(ids.device),
       params,
-      features: buildFeatures({ ids, profile, presetKeys: selectableKeys, state }),
+      features: buildFeatures({
+        ids,
+        profile,
+        presetKeys: selectableKeys,
+        state,
+        model: axencoDevice.model,
+        windowOpenValue: options.windowOpenValue,
+      }),
     },
   };
 }
@@ -156,7 +166,8 @@ export function buildStates(entry, patch) {
 
   for (const sensor of SENSOR_FEATURES) {
     if (patch[sensor.stateKey] !== undefined) {
-      push(sensor.key, sensor.read(patch[sensor.stateKey]));
+      const value = sensor.read(patch[sensor.stateKey]);
+      if (Number.isFinite(value)) push(sensor.key, value);
     }
   }
 
@@ -164,7 +175,27 @@ export function buildStates(entry, patch) {
     push(FEATURE.COOLING, patch.changeOverUser === PRESETS.cooling.code ? 1 : 0);
   }
 
-  return states;
+  if (entry.model === 'EWS' && entry.state.deviceType === 0 && isNumber(modeCode)) {
+    if (modeCode === PRESETS.on.code || modeCode === PRESETS.off.code) {
+      push(STANDARD.RELAY, modeCode === PRESETS.on.code ? 1 : 0);
+    }
+  }
+  if (isNumber(modeCode)) {
+    const pilot = Object.entries(PILOT_PRESETS).find(([, key]) => PRESETS[key].code === modeCode);
+    if (pilot) push(STANDARD.PILOT, Number(pilot[0]));
+    if (entry.model === 'EV30' && presetKeyFromCode(presetKeys, modeCode))
+      push(STANDARD.MODE, modeCode === PRESETS.standby.code ? 0 : 1);
+  }
+  if (entry.windowOpenValue !== null && patch.windowStatus !== undefined) {
+    const raw = patch.windowStatus;
+    if ([true, false, 0, 1].includes(raw)) {
+      push(STANDARD.WINDOW, Number(raw) === entry.windowOpenValue ? 0 : 1);
+    }
+  }
+  // Do not publish phantom setpoints on EWS, or features that appeared after
+  // the current discovery snapshot. Gladys has not created those features yet.
+  const declared = new Set(entry.gladysDevice.features.map((f) => f.external_id));
+  return states.filter((s) => declared.has(s.device_feature_external_id));
 }
 
 /**
@@ -179,6 +210,24 @@ export function buildStates(entry, patch) {
  * await handleSetValue(client, entry, 'preset:comfort', 1);
  */
 export async function handleSetValue(client, entry, featureKey, value) {
+  const declared = entry.gladysDevice.features.find(
+    (f) => f.external_id === entry.ids.feature(featureKey),
+  );
+  if (!declared || declared.read_only) {
+    if (presetKeyFromFeature(featureKey) !== null)
+      throw new Error(`Unknown preset for model ${entry.model}`);
+    throw new Error(
+      `Feature "${featureKey}" is not writable (read-only) or cannot be written on a ${entry.model}`,
+    );
+  }
+  if (featureKey === STANDARD.RELAY) {
+    return setPreset(client, entry, binary(value) ? 'on' : 'off', 1);
+  }
+  if (featureKey === STANDARD.PILOT) {
+    if (!Number.isInteger(value) || !PILOT_PRESETS[value])
+      throw new Error('Invalid pilot-wire mode');
+    return setPreset(client, entry, PILOT_PRESETS[value], 1);
+  }
   if (featureKey === FEATURE.TARGET_TEMP) {
     return setTargetTemperature(client, entry, value);
   }
@@ -197,7 +246,7 @@ export async function handleSetValue(client, entry, featureKey, value) {
 }
 
 async function setTargetTemperature(client, entry, value) {
-  const temperature = Number(value);
+  const temperature = validateTemperature(entry, FEATURE.TARGET_TEMP, value);
   if (!Number.isFinite(temperature)) {
     throw new Error(`Invalid temperature: ${value}`);
   }
@@ -222,6 +271,7 @@ async function setTargetTemperature(client, entry, value) {
 
 async function setPreset(client, entry, presetKey, value) {
   const { profile } = entry;
+  binary(value);
 
   // Switching a preset OFF has no Axenco counterpart — there is no "no mode"
   // to send. Re-publish the mode as it really is so the switch snaps back
@@ -242,7 +292,7 @@ async function setPreset(client, entry, presetKey, value) {
 }
 
 async function setModeSetpoint(client, entry, setpoint, value) {
-  const temperature = Number(value);
+  const temperature = validateTemperature(entry, setpoint.key, value);
   if (!Number.isFinite(temperature)) {
     throw new Error(`Invalid temperature: ${value}`);
   }
@@ -264,6 +314,7 @@ async function setModeSetpoint(client, entry, setpoint, value) {
 }
 
 async function setChangeOver(client, entry, value) {
+  binary(value);
   if (entry.profile.presetRendering !== 'binary') {
     // NTD reports the change-over but never sets it, exactly like `climate.py`.
     throw new Error(`The change-over of a ${entry.model} is read-only`);

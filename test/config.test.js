@@ -8,6 +8,7 @@ test('an empty configuration is usable and reports missing credentials', () => {
   assert.deepEqual(config, {
     email: '',
     password: '',
+    windowOpenValue: null,
     refreshInterval: DEFAULT_REFRESH_INTERVAL,
   });
   assert.equal(hasCredentials(config), false);

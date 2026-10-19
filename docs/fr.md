@@ -1,5 +1,9 @@
 # MyNeomitis (Axenco) pour Gladys Assistant
 
+**Version 1.1 — Gladys ≥ 5.2 :** lire le [guide de migration](upgrade.fr.md)
+pour les nouvelles commandes, le thermostat natif, le widget et les scènes.
+Les sections ci-dessous décrivent aussi les fonctionnalités historiques.
+
 Cette intégration pilote depuis Gladys les radiateurs, thermostats et modules
 **Neomitis / Axenco** gérés par l'application mobile **MyNeomitis**. Elle est le
 portage en JavaScript de l'intégration Home Assistant `myneomitis` et de la
@@ -96,56 +100,15 @@ même appel que l'application officielle, `targetTemp` + `overrideTemp` +
 `targetMode: 8` d'un seul coup. `climate.py` écrit le mode d'abord puis la
 température ; ce premier appel est sans effet, mesuré.
 
-## Pourquoi une liste de modes est impossible, et pas seulement peu pratique
+## Modes standard et compatibilité historique
 
-C'est la question la plus légitime devant sept interrupteurs. La réponse est
-dans le code de Gladys, pas dans un choix esthétique.
-
-Le tableau de bord choisit le widget d'une feature réglable en cherchant son
-`type` dans une table **statique** (`front/src/components/boxs/device-in-room/DeviceRow.jsx`).
-Tous les widgets qui dessinent une liste ont leurs options **écrites en dur
-dans le front** :
-
-| Type essayé                   | Ce que le widget affiche réellement                       |
-| ----------------------------- | --------------------------------------------------------- |
-| `HEATER` / `PILOT_WIRE_MODE`  | 6 options fil pilote figées ; `min`/`max` ignorés         |
-| `AIR_CONDITIONING` / `MODE`   | 3 boutons figés (auto / froid / chaud)                    |
-| `VACUUM_CLEANER` / `RUN_MODE` | 3 valeurs figées                                          |
-| `FAN` / `*_SETTING`           | options issues d'une énumération figée, libellés du front |
-| `SENSOR` / `INTEGER`          | rendu en capteur : non modifiable                         |
-| `TEXT` / `TEXT`               | rendu en capteur : non modifiable                         |
-
-Gladys possède pourtant le mécanisme qu'il faudrait : `supported_options`, une
-liste `{value, label, sort_order}` attachée à une feature. Elle est bien
-validée et enregistrée côté serveur (`normalizeSupportedOptions.js`,
-`device.syncFeatureSupportedOptions.js`), et l'intégration pourrait la fournir.
-Mais **aucun composant du tableau de bord ne l'exploite correctement** : le
-seul qui la lit rend son libellé avec
-
-```jsx
-<Text id={`…${AC_MODE_TRANSLATION_KEYS[mode.value]}`} default={mode.label} />
-```
-
-or `preact-i18n` n'a pas de prop `default` — son composant `Text` ne lit que
-`{ id, children, plural, fields }` et se rabat sur `children[0]`. Sans enfant,
-`translate()` renvoie `null` : **le bouton s'affiche vide**. Et les valeurs qui
-possèdent, elles, une clé de traduction héritent des libellés climatiseur
-(« Clim. », « Chauffage »…), sans rapport avec le mode Axenco correspondant.
-
-Le seul widget modifiable dont **les libellés et l'ensemble des valeurs nous
-appartiennent** est donc l'interrupteur binaire (`BinaryDeviceFeature`, type
-`binary`), dont le libellé est simplement le nom de la feature. D'où ce choix.
-
-**Ses limites, assumées :** beaucoup de lignes sur les modèles à huit modes,
-et éteindre un interrupteur ne veut rien dire. En contrepartie, tous les modes
-de tous les modèles sont atteignables, avec le bon libellé, et chacun est
-utilisable tel quel dans une scène ou par le cerveau de Gladys.
-
-**Si Gladys corrige le rendu** (`<Text>` sans prop inexistante, et une table de
-traduction qui ne masque pas `label`), la bonne représentation devient une
-feature unique `AIR_CONDITIONING` / `MODE` accompagnée de ses
-`supported_options`. Le passage sera limité à `src/devices/features.js` et
-`src/devices/index.js`.
+Depuis la version 1.1, le relais EWS expose un vrai Marche/Arrêt, le fil pilote
+un sélecteur standard, et l'EV30 deux commandes dédiées au thermostat natif.
+Les anciens interrupteurs de modes restent disponibles avec les mêmes ids et
+le même comportement : leur extinction ne transmet pas un ordre d'arrêt.
+Les options par appareil sont déclarées avec `supported_options`. Le widget
+Neomitis propose aussi un formulaire de sélection des modes Axenco.
+Voir le [guide de migration et de configuration du thermostat](upgrade.fr.md).
 
 ## Utilisation dans les scènes
 
@@ -195,12 +158,13 @@ notifications qu'aux conditions.
   intégration utilise la route sous-appareil dédiée que `pyaxencoapi` fournit
   précisément pour ce cas (`set_sub_device_mode_ufh`).
 - **Le programme hebdomadaire n'est pas exposé.** L'appel existe côté client
-  (`setDeviceProgram`), mais Gladys n'a pas de représentation pour un planning
-  d'appareil : continuez à le gérer dans l'application MyNeomitis. Le mode
+  (`setDeviceProgram`), l'édition de ce programme Axenco reste dans MyNeomitis.
+  Le planning du thermostat natif Gladys est une alternative distincte. Le mode
   « Auto » suit ce programme.
-- **`has_feedback` est optimiste.** Après une commande, l'intégration publie la
-  valeur demandée sans attendre la confirmation d'Axenco ; le push WebSocket qui
-  suit corrige l'affichage si l'appareil a fait autre chose.
+- **Les commandes historiques publient de manière optimiste.** Leurs valeurs
+  demandées sont corrigées par les observations suivantes. La nouvelle consigne
+  native EV30 utilise les retours confirmés du matériel ; voir le guide de
+  migration.
 
 ## État de vérification par modèle
 

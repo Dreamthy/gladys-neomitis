@@ -1,31 +1,8 @@
-// -----------------------------------------------------------------------------
-// Feature layout of an Axenco device inside Gladys.
-//
-// One Axenco device = one Gladys device carrying several features. The mode
-// deserves an explanation, because it is the one place where Gladys has no
-// natural fit (see docs/fr.md and docs/en.md for the long version):
-//
-//   Axenco exposes up to ten presets per model (comfort, eco, antifrost,
-//   boost, setpoint, auto, comfort_plus, eco_1, eco_2, standby...). Gladys
-//   renders a writable feature by looking its `type` up in a STATIC map
-//   (`front/.../device-in-room/DeviceRow.jsx`), and every widget that draws a
-//   list has its options hard-coded in the front:
-//     - HEATER/PILOT_WIRE_MODE      -> 6 fixed fil-pilote options;
-//     - AIR_CONDITIONING/MODE       -> 3 fixed options (auto/cooling/heating);
-//     - VACUUM_CLEANER/RUN_MODE     -> 3 fixed options;
-//     - FAN/*_SETTING               -> options from a fixed enum, labels from
-//                                      the front translation files.
-//   The `supported_options` mechanism ({value, label, sort_order}) is stored
-//   and returned by the server, but the only component reading it renders its
-//   label through `<Text ... default={...} />`, and preact-i18n has no
-//   `default` prop: an option without a built-in translation key renders EMPTY.
-//
-// So the only writable widget whose labels AND value set are ours is the plain
-// binary switch (`BinaryDeviceFeature`, keyed on the `binary` type). Hence one
-// exclusive switch per preset, plus a read-only text feature showing the mode
-// currently reported — which is also what surfaces a code we do not know yet
-// instead of silently dropping it.
-// -----------------------------------------------------------------------------
+// One Axenco device keeps its historical feature ids and exclusive preset
+// switches so existing Gladys scenes remain valid. Gladys 5.2 adds a separate
+// EV30 thermostat pair, an EWS binary relay and standard pilot-wire controls.
+// The full Axenco preset list is also available in the integration widget.
+// Unknown reported modes remain visible through the legacy text feature.
 
 import {
   DEVICE_FEATURE_CATEGORIES,
@@ -34,6 +11,7 @@ import {
 } from '@gladysassistant/integration-sdk';
 import { DEFAULT_MAX_TEMP, DEFAULT_MIN_TEMP, PRESETS } from '../axenco/const.js';
 import { selectorFromExternalId } from '../selector.js';
+import { STANDARD, PILOT_PRESETS } from './standard.js';
 
 export const DEVICE_TYPE = 'axenco';
 
@@ -203,8 +181,87 @@ function withSelector(feature) {
  * @example
  * buildFeatures({ ids, profile, presetKeys, state });
  */
-export function buildFeatures({ ids, profile, presetKeys, state }) {
+export function buildFeatures({ ids, profile, presetKeys, state, model, windowOpenValue = null }) {
   const features = [];
+  const add = (key, name, category, type, min, max, extra = {}) =>
+    features.push(
+      withSelector({
+        name,
+        external_id: ids.feature(key),
+        category,
+        type,
+        min,
+        max,
+        read_only: false,
+        has_feedback: true,
+        keep_history: false,
+        ...extra,
+      }),
+    );
+
+  if (model === 'EV30') {
+    add(
+      STANDARD.MODE,
+      'Mode thermostat Gladys',
+      DEVICE_FEATURE_CATEGORIES.THERMOSTAT,
+      DEVICE_FEATURE_TYPES.THERMOSTAT.MODE,
+      0,
+      1,
+      {
+        supported_options: [
+          { value: 0, label: { en: 'Off', fr: 'Arrêt' } },
+          { value: 1, label: { en: 'Heating', fr: 'Chauffage' } },
+        ],
+      },
+    );
+    add(
+      STANDARD.TARGET,
+      'Consigne thermostat Gladys',
+      DEVICE_FEATURE_CATEGORIES.THERMOSTAT,
+      DEVICE_FEATURE_TYPES.THERMOSTAT.TARGET_TEMPERATURE,
+      numberOr(state.comfLimitMin, DEFAULT_MIN_TEMP),
+      numberOr(state.comfLimitMax, DEFAULT_MAX_TEMP),
+      { unit: DEVICE_FEATURE_UNITS.CELSIUS, step: 0.5, keep_history: true },
+    );
+  }
+  if (model === 'EWS' && state.deviceType === 0) {
+    add(
+      STANDARD.RELAY,
+      'Marche / Arrêt',
+      DEVICE_FEATURE_CATEGORIES.SWITCH,
+      DEVICE_FEATURE_TYPES.SWITCH.BINARY,
+      0,
+      1,
+    );
+  }
+  if (model === 'EWS' && state.deviceType !== 0) {
+    const supported = Object.entries(PILOT_PRESETS).filter(([, key]) => presetKeys.includes(key));
+    add(
+      STANDARD.PILOT,
+      'Ordre fil pilote',
+      DEVICE_FEATURE_CATEGORIES.HEATER,
+      DEVICE_FEATURE_TYPES.HEATER.PILOT_WIRE_MODE,
+      0,
+      5,
+      {
+        supported_options: supported.map(([value, key]) => ({
+          value: Number(value),
+          label: PRESETS[key].label,
+        })),
+      },
+    );
+  }
+  if (windowOpenValue !== null && state.windowStatus !== undefined) {
+    add(
+      STANDARD.WINDOW,
+      'Contact fenêtre pour thermostat',
+      DEVICE_FEATURE_CATEGORIES.OPENING_SENSOR,
+      DEVICE_FEATURE_TYPES.SENSOR.BINARY,
+      0,
+      1,
+      { read_only: true, has_feedback: false, keep_history: true },
+    );
+  }
 
   if (profile.targetTempKey) {
     features.push(

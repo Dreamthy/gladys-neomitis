@@ -17,7 +17,7 @@ WORKDIR /app
 
 # Install the PROD dependencies first (better build cache).
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev || npm install --omit=dev
+RUN npm ci --omit=dev
 
 # Then the integration code.
 COPY index.js ./
@@ -26,6 +26,7 @@ COPY gladys-assistant-integration.json ./
 
 # The only writable location allowed at runtime.
 ENV NODE_ENV=production
+RUN mkdir -p /data && chown node:node /data
 VOLUME ["/data"]
 
 # Run as an unprivileged user (already present in the node image).

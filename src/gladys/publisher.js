@@ -1,100 +1,48 @@
-// -----------------------------------------------------------------------------
-// Publishing to Gladys: deduplication, batching and the transport badge.
-//
-// Extracted from index.js so it can be unit tested. It has no Axenco knowledge
-// and no timers — it only knows how to send states and transports to the host
-// API within its limits.
-// -----------------------------------------------------------------------------
-
 import { DEVICE_TRANSPORTS } from '@gladysassistant/integration-sdk';
 
-// Host API batch limits, enforced by the SDK and by Gladys itself.
-const MAX_STATES_PER_REQUEST = 100;
-const MAX_TRANSPORTS_PER_REQUEST = 100;
-
-/**
- * @description Read the comparable value out of a state entry: numeric states
- * and text states live under different keys.
- * @param {object} state - A state entry.
- * @returns {number|string|undefined} The value to compare.
- * @example
- * valueOf({ device_feature_external_id: 'x', text: 'Auto' }); // 'Auto'
- */
-function valueOf(state) {
-  return state.state === undefined ? state.text : state.state;
-}
-
-/**
- * @description Build the publisher bound to one SDK instance.
- * @param {object} gladys - The `GladysIntegration` instance.
- * @returns {object} `{ publishStates, publishTransports, forget }`.
- * @example
- * const publisher = createPublisher(gladys);
- */
+/** SDK deduplication plus ordered forced sends and created-feature filtering. */
 export function createPublisher(gladys) {
-  /** Last value published per feature, so unchanged values cost nothing. */
-  const lastPublished = new Map();
-
+  let tail = Promise.resolve();
+  const run = (task) => {
+    const next = tail.catch(() => {}).then(task);
+    tail = next;
+    return next;
+  };
   return {
-    /**
-     * @description Publish states, dropping the ones that did not change and
-     * chunking the rest.
-     *
-     * Deduplication is what keeps a fleet under the 300 states/minute limit:
-     * the periodic refresh republishes a full snapshot every cycle, and almost
-     * none of it has moved.
-     *
-     * `force` bypasses it, and is needed after a user action: the job there is
-     * to make the UI match reality, not to report a change. Turning a preset
-     * switch off is the case that matters — it is a no-op on the Axenco side,
-     * so the very same value is republished to snap the switch back, which
-     * deduplication would otherwise swallow.
-     * @param {Array<object>} states - States to publish.
-     * @param {object} [options] - Options.
-     * @param {boolean} [options.force] - Publish even unchanged values.
-     * @returns {Promise<void>} Resolves once every chunk is sent.
-     * @example
-     * await publisher.publishStates(states, { force: true });
-     */
-    async publishStates(states, { force = false } = {}) {
-      const changed = force
-        ? states
-        : states.filter(
-            (state) => lastPublished.get(state.device_feature_external_id) !== valueOf(state),
-          );
-      if (changed.length === 0) {
-        return;
-      }
-      for (let index = 0; index < changed.length; index += MAX_STATES_PER_REQUEST) {
-        const chunk = changed.slice(index, index + MAX_STATES_PER_REQUEST);
-        await gladys.publishStates(chunk);
-        // Remember only what Gladys actually accepted: a batch that threw must
-        // be retried on the next refresh, not cached as if it had been sent.
-        for (const state of chunk) {
-          lastPublished.set(state.device_feature_external_id, valueOf(state));
-        }
-      }
+    publishStates(states, { force = false, heartbeat = false } = {}) {
+      return run(async () => {
+        const created = new Set(
+          (gladys.devices || []).flatMap((d) => d.features.map((f) => f.external_id)),
+        );
+        const owned = states.filter((s) => created.has(s.device_feature_external_id));
+        if (force)
+          for (const state of owned) gladys.forgetPublishedStates(state.device_feature_external_id);
+        return gladys.publishChangedStates(owned, heartbeat ? { heartbeat: 30 * 60 * 1000 } : {});
+      });
     },
-
-    /**
-     * @description Publish the per-device transport badge.
-     *
-     * Axenco is cloud-only, so the badge carries the one thing that varies:
-     * whether the device is reachable. The nominal `cloud` value is what
-     * CLEARS a previous `unreachable`, which is why it is published too.
-     * @param {Iterable<object>} entries - Registry entries.
-     * @returns {Promise<void>} Resolves once every chunk is sent.
-     * @example
-     * await publisher.publishTransports(registry.values());
-     */
-    async publishTransports(entries) {
-      const payload = [...entries].map((entry) => ({
-        external_id: entry.ids.device,
-        transport: entry.connected ? DEVICE_TRANSPORTS.CLOUD : DEVICE_TRANSPORTS.UNREACHABLE,
-      }));
-      for (let index = 0; index < payload.length; index += MAX_TRANSPORTS_PER_REQUEST) {
-        await gladys.publishTransports(payload.slice(index, index + MAX_TRANSPORTS_PER_REQUEST));
-      }
+    forget(id) {
+      gladys.forgetPublishedStates(id);
+    },
+    async publishTransports(entries, { reachable = true, pushConnected = true } = {}) {
+      const created = new Set((gladys.devices || []).map((d) => d.external_id));
+      const payload = [...entries]
+        .filter((e) => created.has(e.ids.device))
+        .map((entry) => ({
+          external_id: entry.ids.device,
+          transport:
+            reachable && entry.connected ? DEVICE_TRANSPORTS.CLOUD : DEVICE_TRANSPORTS.UNREACHABLE,
+          degraded: reachable && entry.connected && !pushConnected,
+          ...(reachable && entry.connected && !pushConnected
+            ? {
+                message: {
+                  en: 'Real-time channel unavailable; periodic refresh remains active.',
+                  fr: 'Temps réel indisponible ; le rafraîchissement périodique reste actif.',
+                },
+              }
+            : {}),
+        }));
+      for (let i = 0; i < payload.length; i += 100)
+        await gladys.publishTransports(payload.slice(i, i + 100));
     },
   };
 }

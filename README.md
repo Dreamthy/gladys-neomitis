@@ -86,16 +86,14 @@ integration.
 
 Two design points worth knowing before reading the code:
 
-**The mode is a set of exclusive binary switches**, not a dropdown. Gladys picks
-a widget from a static type map and every list widget has its options hard-coded
-in the front, so a binary switch is the only writable control whose labels and
-values are ours. The full reasoning, including the upstream `preact-i18n` bug
-that rules out `supported_options`, is in [`docs/en.md`](docs/en.md).
-
-**States published right after a command are optimistic and may be wrong.**
-Axenco answers `200` to values the device then ignores, and these heaters drop
-commands sent seconds apart. `src/gladys/reconciler.js` re-reads the device 30 s
-later and publishes what it actually reports, logging any difference.
+**Version 1.1 requires Gladys 5.2 and SDK 0.15.** Standard controls and a
+summary widget complement the legacy switches, whose identifiers are retained.
+The EV30 native thermostat controls keep OFF effective across the frost
+fallback and publish observed temperatures. Legacy commands keep their
+optimistic feedback and 30-second reconciliation. Read the
+[migration guide](docs/upgrade.en.md) before selecting thermostat features or
+configuring window polarity. The [development checklist](docs/development-plan.md)
+records automated validation and the remaining hardware checks.
 
 ## Development
 

@@ -1,5 +1,9 @@
 # MyNeomitis (Axenco) for Gladys Assistant
 
+**Version 1.1 — Gladys ≥ 5.2:** read the [migration guide](upgrade.en.md)
+for native thermostat controls, the widget and scene actions. The following
+sections also describe the legacy features.
+
 This integration controls the **Neomitis / Axenco** heaters, thermostats and
 modules managed by the **MyNeomitis** mobile app from Gladys. It is a
 JavaScript port of the Home Assistant `myneomitis` integration and of the
@@ -96,54 +100,14 @@ the same call as the official app, `targetTemp` + `overrideTemp` +
 `targetMode: 8` in one go. `climate.py` writes the mode first and then the
 temperature; that first call is a no-op, measured.
 
-## Why a mode dropdown is impossible, not merely inconvenient
+## Standard modes and legacy compatibility
 
-That is the fair question to ask in front of seven switches. The answer is in
-the Gladys code, not in a matter of taste.
-
-The dashboard picks the widget of a writable feature by looking its `type` up
-in a **static** map (`front/src/components/boxs/device-in-room/DeviceRow.jsx`).
-Every widget that draws a list has its options **hard-coded in the front**:
-
-| Type tried                    | What the widget actually renders                 |
-| ----------------------------- | ------------------------------------------------ |
-| `HEATER` / `PILOT_WIRE_MODE`  | 6 fixed fil-pilote options; `min`/`max` ignored  |
-| `AIR_CONDITIONING` / `MODE`   | 3 fixed buttons (auto / cooling / heating)       |
-| `VACUUM_CLEANER` / `RUN_MODE` | 3 fixed values                                   |
-| `FAN` / `*_SETTING`           | options from a fixed enum, labels from the front |
-| `SENSOR` / `INTEGER`          | rendered as a sensor: not writable               |
-| `TEXT` / `TEXT`               | rendered as a sensor: not writable               |
-
-Gladys does have the mechanism this would need: `supported_options`, a list of
-`{value, label, sort_order}` attached to a feature. It is validated and stored
-server side (`normalizeSupportedOptions.js`,
-`device.syncFeatureSupportedOptions.js`), and the integration could supply it.
-But **no dashboard component consumes it correctly**: the only one that reads
-it renders its label with
-
-```jsx
-<Text id={`…${AC_MODE_TRANSLATION_KEYS[mode.value]}`} default={mode.label} />
-```
-
-and `preact-i18n` has no `default` prop — its `Text` component only reads
-`{ id, children, plural, fields }` and falls back to `children[0]`. With no
-child, `translate()` returns `null`: **the button renders empty**. Values that
-do have a translation key inherit air-conditioning labels ("Cooling",
-"Heating"…) unrelated to the Axenco mode behind them.
-
-So the only writable widget whose **labels and value set are both ours** is the
-plain binary switch (`BinaryDeviceFeature`, type `binary`), whose label is
-simply the feature name. Hence the choice.
-
-**Its accepted limits:** many rows on the eight-mode models, and turning a switch
-off means nothing. In exchange, every mode of every model is reachable with the
-right label, and each one is directly usable in a scene or by the Gladys brain.
-
-**If Gladys fixes the rendering** (a `<Text>` without a non-existent prop, and a
-translation table that does not shadow `label`), the right representation
-becomes a single `AIR_CONDITIONING` / `MODE` feature carrying its
-`supported_options`. The change would be confined to `src/devices/features.js`
-and `src/devices/index.js`.
+Version 1.1 adds a real ON/OFF control for EWS relays, a standard pilot-wire
+selector and two EV30 controls dedicated to the native thermostat. Existing
+preset switches retain their ids and semantics: switching one OFF is not a
+hardware stop. Supported choices are declared through `supported_options`.
+The Neomitis widget also offers an Axenco mode form. Read the
+[migration and thermostat guide](upgrade.en.md) for configuration.
 
 ## Using it in scenes
 
@@ -188,12 +152,13 @@ being text, it fits display and notifications better than conditions.
   UFH is a sub-device whose mode lives on `changeOverUser`. This integration
   uses the dedicated sub-device route `pyaxencoapi` provides for exactly that
   case (`set_sub_device_mode_ufh`).
-- **The weekly program is not exposed.** The call exists in the client
-  (`setDeviceProgram`), but Gladys has no representation for a device schedule:
-  keep managing it in the MyNeomitis app. "Auto" mode follows that program.
-- **`has_feedback` is optimistic.** After a command the integration publishes
-  the requested value without waiting for Axenco to confirm; the WebSocket push
-  that follows corrects the display if the device did something else.
+- **The Axenco weekly program is not edited here.** The client supports
+  `setDeviceProgram`; keep editing this manufacturer schedule in MyNeomitis.
+  The native Gladys thermostat offers a separate schedule. Axenco Auto follows
+  the manufacturer schedule.
+- **Legacy commands publish optimistically.** Their requested values are
+  corrected by subsequent observations. The new native EV30 target instead
+  uses confirmed hardware feedback; see the migration guide.
 
 ## Verification status per model
 

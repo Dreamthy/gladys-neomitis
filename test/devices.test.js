@@ -66,6 +66,8 @@ test('a thermostat exposes temperatures, the mode and the selectable presets', (
   // reported state produced by writing a temperature.
   const entry = describe_(axencoThermostat());
   assert.deepEqual(featureNames(entry), [
+    'Mode thermostat Gladys',
+    'Consigne thermostat Gladys',
     'Température actuelle',
     'Température cible',
     'Mode actuel',
@@ -101,7 +103,13 @@ test('a UFH is a single heating/cooling switch, a NTD reports the same read-only
 
 test('an EWS relay exposes On/Off/Auto', () => {
   const relay = describe_(axencoThermostat({ model: 'EWS', state: { deviceType: 0 } }));
-  assert.deepEqual(featureNames(relay), ['Mode actuel', 'Marche', 'Arrêt', 'Auto']);
+  assert.deepEqual(featureNames(relay), [
+    'Marche / Arrêt',
+    'Mode actuel',
+    'Marche',
+    'Arrêt',
+    'Auto',
+  ]);
 });
 
 test('an EWS fil pilote exposes the seven orders the module really emits', () => {
@@ -110,6 +118,7 @@ test('an EWS fil pilote exposes the seven orders the module really emits', () =>
   // "Mode Éco, Éco-1 ou Éco-2". The MyNeomitis app menu hides those two.
   const pilot = describe_(axencoThermostat({ model: 'EWS', state: { deviceType: 1 } }));
   assert.deepEqual(featureNames(pilot), [
+    'Ordre fil pilote',
     'Mode actuel',
     'Boost',
     'Éco',
@@ -230,7 +239,12 @@ test('a mode push lights exactly one switch and names the mode', () => {
   assert.equal(stateFor(states, entry, 'mode').text, 'Boost');
   assert.equal(stateFor(states, entry, 'preset:boost').state, 1);
   assert.equal(stateFor(states, entry, 'preset:comfort').state, 0);
-  assert.equal(states.filter((state) => state.state === 1).length, 1);
+  assert.equal(
+    states.filter(
+      (state) => state.state === 1 && state.device_feature_external_id.includes(':preset:'),
+    ).length,
+    1,
+  );
 });
 
 test('a mode code we do not know stays visible instead of being dropped', () => {

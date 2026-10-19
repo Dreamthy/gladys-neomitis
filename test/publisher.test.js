@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { GladysIntegration } from '@gladysassistant/integration-sdk';
 
 import { createPublisher } from '../src/gladys/publisher.js';
 
@@ -7,7 +8,24 @@ import { createPublisher } from '../src/gladys/publisher.js';
 function fakeGladys() {
   const stateBatches = [];
   const transportBatches = [];
-  return {
+  const sdk = new GladysIntegration({
+    hostApiUrl: 'http://localhost:1443',
+    token: 'test',
+    selector: 'test',
+  });
+  sdk.devices = [
+    {
+      external_id: 'device',
+      features: ['a', 'b', 'preset', 'mode', ...Array.from({ length: 250 }, (_, i) => `f${i}`)].map(
+        (external_id) => ({ external_id }),
+      ),
+    },
+    ...['a', 'b', ...Array.from({ length: 150 }, (_, i) => `d${i}`)].map((external_id) => ({
+      external_id,
+      features: [],
+    })),
+  ];
+  return Object.assign(sdk, {
     stateBatches,
     transportBatches,
     async publishStates(batch) {
@@ -16,7 +34,7 @@ function fakeGladys() {
     async publishTransports(batch) {
       transportBatches.push(batch);
     },
-  };
+  });
 }
 
 const state = (id, value) => ({ device_feature_external_id: id, state: value });
@@ -109,8 +127,8 @@ test('the transport badge reflects reachability, and is chunked too', async () =
   await publisher.publishTransports([entry('a', true), entry('b', false)]);
 
   assert.deepEqual(gladys.transportBatches[0], [
-    { external_id: 'a', transport: 'cloud' },
-    { external_id: 'b', transport: 'unreachable' },
+    { external_id: 'a', transport: 'cloud', degraded: false },
+    { external_id: 'b', transport: 'unreachable', degraded: false },
   ]);
 
   const many = Array.from({ length: 150 }, (_, index) => entry(`d${index}`, true));

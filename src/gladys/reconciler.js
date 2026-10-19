@@ -1,8 +1,8 @@
 // -----------------------------------------------------------------------------
 // Post-command reconciliation.
 //
-// The states published straight after a command are optimistic: they say what
-// we ASKED for. That is a lie in two measured situations — Axenco answers 200
+// Legacy commands publish requested values optimistically; native thermostat
+// targets wait for observed feedback. Both need a check: Axenco answers 200
 // to values the device then ignores, and these heaters drop commands sent a
 // few seconds apart. Without a check, a switch stays where the user put it
 // while the hardware never moved, and nothing says so.
@@ -18,6 +18,8 @@
 
 // Long enough for a heater to settle (measured 2-30 s). 12 s was tried first
 // and reported refusals on commands that had simply not landed yet.
+import { presetKeyFromCode } from '../axenco/const.js';
+
 const RECONCILE_DELAY_MS = 30_000;
 
 // Arrays and objects in the device state (driftCorrections, infoSystem,
@@ -62,9 +64,12 @@ export function createReconciler({
   logger,
   buildStates,
   delayMs = RECONCILE_DELAY_MS,
+  getEntry = null,
+  onFailure = () => {},
 }) {
   /** `${axencoId}:${featureKey}` -> pending timer. */
   const timers = new Map();
+  const pending = new Map();
 
   return {
     /**
@@ -89,22 +94,52 @@ export function createReconciler({
       // two switches in a row would otherwise cancel the first check and we
       // would learn nothing about it.
       const timerKey = `${entry.axencoId}:${featureKey}`;
+      asked = { ...asked };
+      // Several UI switches write the same Axenco targetMode. A later order
+      // supersedes that field, rather than making the previous order a refusal.
+      for (const [key, previous] of pending) {
+        if (!key.startsWith(`${entry.axencoId}:`)) continue;
+        for (const field of Object.keys(asked)) delete previous[field];
+        if (Object.keys(previous).length === 0) {
+          clearTimeout(timers.get(key));
+          timers.delete(key);
+          pending.delete(key);
+        }
+      }
       clearTimeout(timers.get(timerKey));
+      pending.set(timerKey, asked);
       timers.set(
         timerKey,
         setTimeout(async () => {
           timers.delete(timerKey);
+          pending.delete(timerKey);
+          if (getEntry) {
+            entry = getEntry(entry.axencoId);
+            if (!entry) return;
+          }
           try {
             const fresh = ((await client.getDeviceState(entry.axencoId)) || {}).state;
             if (!fresh) {
-              return;
+              throw new Error('No device state returned for confirmation');
             }
             const watched = Object.keys(asked);
-            const refused = watched.filter((key) => fresh[key] !== asked[key]);
+            const refused = watched.filter((key) => {
+              if (key === 'targetMode') {
+                const keys = entry.presetKeys || ['auto'];
+                const expected = presetKeyFromCode(keys, asked[key]);
+                if (expected && expected === presetKeyFromCode(keys, fresh[key])) return false;
+              }
+              return fresh[key] !== asked[key];
+            });
             if (refused.length > 0) {
               logger.warn(
                 `${entry.model}/${featureKey}: Axenco answered 200 but the device did not apply it — ` +
                   refused.map((key) => `${key}: asked ${asked[key]}, got ${fresh[key]}`).join(', '),
+              );
+              await onFailure(
+                entry,
+                featureKey,
+                new Error(`Device did not confirm: ${refused.join(', ')}`),
               );
             } else if (watched.length > 0) {
               logger.info(
@@ -113,18 +148,33 @@ export function createReconciler({
               );
             }
             Object.assign(entry.state, fresh);
-            await publisher.publishStates(buildStates(entry, fresh), { force: true });
+            await publisher.publishStates(buildStates(entry, fresh));
           } catch (err) {
             logger.error(`Reconciliation failed for ${entry.axencoId}`, err);
+            await onFailure(
+              entry,
+              featureKey,
+              new Error(`Confirmation unavailable: ${err.message}`),
+            );
           }
         }, delayMs),
       );
+    },
+
+    cancelDevice(id) {
+      for (const [key, timer] of timers) {
+        if (!key.startsWith(`${id}:`)) continue;
+        clearTimeout(timer);
+        timers.delete(key);
+        pending.delete(key);
+      }
     },
 
     /** Drop every pending check, on shutdown or on a session restart. */
     cancelAll() {
       timers.forEach((timer) => clearTimeout(timer));
       timers.clear();
+      pending.clear();
     },
   };
 }

@@ -6,9 +6,9 @@
     "en": "Control your Neomitis / Axenco heaters and thermostats from Gladys.",
     "fr": "Pilotez vos radiateurs et thermostats Neomitis / Axenco depuis Gladys."
   },
-  "version": "1.0.2",
-  "docker_image": "ghcr.io/dreamthy/gladys-neomitis:1.0.2",
-  "gladys_version": ">=4.86.0",
+  "version": "1.1.0",
+  "docker_image": "ghcr.io/dreamthy/gladys-neomitis:1.1.0",
+  "gladys_version": ">=5.2.0",
   "cover_image": "https://raw.githubusercontent.com/Dreamthy/gladys-neomitis/main/cover.png",
   "categories": ["climate", "environment"],
   "transports": ["cloud"],
@@ -79,6 +79,348 @@
       "default": 300,
       "min": 60,
       "max": 3600
+    },
+    {
+      "key": "window_open_value",
+      "type": "select",
+      "label": {
+        "en": "Axenco window contact polarity",
+        "fr": "Correspondance du contact fenêtre Axenco"
+      },
+      "description": {
+        "en": "Enable only after checking the raw windowStatus on your device. Legacy window features are unchanged.",
+        "fr": "À activer après vérification du champ windowStatus sur votre appareil. Le capteur historique reste inchangé."
+      },
+      "default": "disabled",
+      "options": [
+        {
+          "value": "disabled",
+          "label": {
+            "en": "Not verified (disabled)",
+            "fr": "Non vérifié (désactivé)"
+          }
+        },
+        {
+          "value": "1",
+          "label": {
+            "en": "1 / true means open",
+            "fr": "1 / vrai signifie ouvert"
+          }
+        },
+        {
+          "value": "0",
+          "label": {
+            "en": "0 / false means open",
+            "fr": "0 / faux signifie ouvert"
+          }
+        }
+      ]
+    }
+  ],
+  "scene_actions": [
+    {
+      "key": "choose_mode",
+      "label": {
+        "en": "Choose Axenco mode",
+        "fr": "Choisir le mode Axenco"
+      },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device",
+            "fr": "Appareil"
+          },
+          "required": true
+        },
+        {
+          "key": "mode",
+          "type": "select",
+          "label": {
+            "en": "Mode",
+            "fr": "Mode"
+          },
+          "required": true,
+          "options": [
+            {
+              "value": "comfort",
+              "label": {
+                "en": "Confort",
+                "fr": "Confort"
+              }
+            },
+            {
+              "value": "eco",
+              "label": {
+                "en": "Éco",
+                "fr": "Éco"
+              }
+            },
+            {
+              "value": "antifrost",
+              "label": {
+                "en": "Hors gel",
+                "fr": "Hors gel"
+              }
+            },
+            {
+              "value": "standby",
+              "label": {
+                "en": "Veille",
+                "fr": "Veille"
+              }
+            },
+            {
+              "value": "boost",
+              "label": {
+                "en": "Boost",
+                "fr": "Boost"
+              }
+            },
+            {
+              "value": "auto",
+              "label": {
+                "en": "Auto MyNeomitis",
+                "fr": "Auto MyNeomitis"
+              }
+            },
+            {
+              "value": "comfort_plus",
+              "label": {
+                "en": "Confort +",
+                "fr": "Confort +"
+              }
+            },
+            {
+              "value": "eco_1",
+              "label": {
+                "en": "Éco 1K",
+                "fr": "Éco 1K"
+              }
+            },
+            {
+              "value": "eco_2",
+              "label": {
+                "en": "Éco 2K",
+                "fr": "Éco 2K"
+              }
+            },
+            {
+              "value": "on",
+              "label": {
+                "en": "Marche",
+                "fr": "Marche"
+              }
+            },
+            {
+              "value": "off",
+              "label": {
+                "en": "Arrêt",
+                "fr": "Arrêt"
+              }
+            },
+            {
+              "value": "heating",
+              "label": {
+                "en": "Heating",
+                "fr": "Chauffage"
+              }
+            },
+            {
+              "value": "cooling",
+              "label": {
+                "en": "Cooling",
+                "fr": "Rafraîchissement"
+              }
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "key": "accepted",
+          "type": "boolean",
+          "label": {
+            "en": "Command accepted, not hardware confirmation",
+            "fr": "Commande acceptée, sans confirmation matérielle"
+          }
+        }
+      ]
+    },
+    {
+      "key": "set_temperature",
+      "label": {
+        "en": "Apply temperature override",
+        "fr": "Appliquer une dérogation"
+      },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device",
+            "fr": "Appareil"
+          },
+          "required": true
+        },
+        {
+          "key": "temperature",
+          "type": "number",
+          "label": {
+            "en": "Temperature (°C)",
+            "fr": "Température (°C)"
+          },
+          "required": true,
+          "min": 7,
+          "max": 30
+        }
+      ],
+      "outputs": [
+        {
+          "key": "accepted",
+          "type": "boolean",
+          "label": {
+            "en": "Command accepted, not hardware confirmation",
+            "fr": "Commande acceptée, sans confirmation matérielle"
+          }
+        }
+      ]
+    },
+    {
+      "key": "resume_program",
+      "label": {
+        "en": "Resume MyNeomitis programme",
+        "fr": "Reprendre le programme MyNeomitis"
+      },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device",
+            "fr": "Appareil"
+          },
+          "required": true
+        }
+      ],
+      "outputs": [
+        {
+          "key": "accepted",
+          "type": "boolean",
+          "label": {
+            "en": "Command accepted, not hardware confirmation",
+            "fr": "Commande acceptée, sans confirmation matérielle"
+          }
+        }
+      ]
+    },
+    {
+      "key": "set_heating",
+      "label": {
+        "en": "Switch heater on / off",
+        "fr": "Mettre en marche / arrêter l’appareil"
+      },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device",
+            "fr": "Appareil"
+          },
+          "required": true
+        },
+        {
+          "key": "enabled",
+          "type": "boolean",
+          "label": {
+            "en": "Heating enabled",
+            "fr": "Chauffage activé"
+          },
+          "required": true
+        }
+      ],
+      "outputs": [
+        {
+          "key": "accepted",
+          "type": "boolean",
+          "label": {
+            "en": "Command accepted, not hardware confirmation",
+            "fr": "Commande acceptée, sans confirmation matérielle"
+          }
+        }
+      ]
+    }
+  ],
+  "scene_triggers": [
+    {
+      "key": "command_failed",
+      "label": {
+        "en": "Command not confirmed",
+        "fr": "Commande non confirmée"
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device",
+            "fr": "Appareil"
+          },
+          "required": false
+        }
+      ],
+      "variables": [
+        {
+          "key": "feature",
+          "type": "string",
+          "label": {
+            "en": "Feature",
+            "fr": "Fonctionnalité"
+          }
+        },
+        {
+          "key": "reason",
+          "type": "string",
+          "label": {
+            "en": "Reason",
+            "fr": "Motif"
+          }
+        }
+      ]
+    }
+  ],
+  "widgets": [
+    {
+      "key": "heater",
+      "label": {
+        "en": "Neomitis heater",
+        "fr": "Radiateur Neomitis"
+      },
+      "icon": "thermometer",
+      "settings": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Device",
+            "fr": "Appareil"
+          },
+          "required": true
+        }
+      ],
+      "action_timeout_seconds": 30
     }
   ]
 }

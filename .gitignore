@@ -13,3 +13,4 @@ data/
 # `myneomitis` integration and `pyaxencoapi`). Not ours to redistribute, and
 # not needed to build or run this integration.
 reference/
+.data/

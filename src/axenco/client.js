@@ -26,6 +26,8 @@ import { extractGatewayId, findChildren, getRfidById } from './utils.js';
 
 const AUTH_TIMEOUT_MS = 10_000;
 const REQUEST_TIMEOUT_MS = 15_000;
+// Leave time for the SDK acknowledgement inside Gladys's five-second budget.
+const COMMAND_TIMEOUT_MS = 3500;
 const DEVICES_CACHE_TTL_MS = 300_000;
 const SOCKET_RECONNECT_BASE_DELAY_MS = 5_000;
 const SOCKET_RECONNECT_MAX_DELAY_MS = 300_000;
@@ -66,6 +68,7 @@ export class AxencoClient {
     this.discoveryCallbacks = [];
     this.removalCallbacks = [];
     this.authFailureCallbacks = [];
+    this.connectionCallbacks = [];
   }
 
   // --- Authentication --------------------------------------------------------
@@ -94,9 +97,11 @@ export class AxencoClient {
     }
     this.token = result.token;
     this.refreshToken = result.refresh_token;
-    if (!this.userId) {
-      this.userId = result.id;
+    if (this.userId !== result.id) {
+      this.devicesCache = [];
+      this.lastFetch = 0;
     }
+    this.userId = result.id;
     this.applyTokenToSocket();
   }
 
@@ -106,14 +111,14 @@ export class AxencoClient {
    * @example
    * await client.refreshAuthToken();
    */
-  async refreshAuthToken() {
+  async refreshAuthToken(timeoutMs = AUTH_TIMEOUT_MS) {
     if (!this.refreshToken) {
       throw new Error('Missing refresh token');
     }
     const response = await fetch(`${API_BASE}/v1/auth/token`, {
       method: 'POST',
       headers: { ...this.baseHeaders(), Authorization: `Bearer ${this.refreshToken}` },
-      signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) {
       throw new AxencoApiError(
@@ -184,6 +189,13 @@ export class AxencoClient {
    * await client.request('GET', '/v1/devices/abc');
    */
   async request(method, path, body) {
+    const deadline = method === 'GET' ? null : Date.now() + COMMAND_TIMEOUT_MS;
+    const remaining = () => {
+      const timeout = deadline === null ? REQUEST_TIMEOUT_MS : deadline - Date.now();
+      if (timeout <= 0)
+        throw new Error('Axenco command timed out; its physical result is unconfirmed');
+      return timeout;
+    };
     const send = async () => {
       const payload = body === undefined ? undefined : JSON.stringify(body);
       if (method === 'GET') {
@@ -198,7 +210,7 @@ export class AxencoClient {
           ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
         ...(payload === undefined ? {} : { body: payload }),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(remaining()),
       });
       const text = await response.text();
       if (!response.ok) {
@@ -224,7 +236,7 @@ export class AxencoClient {
     } catch (err) {
       if (err instanceof AxencoApiError && err.status === 401) {
         this.logger.debug('Token expired, attempting to refresh');
-        await this.refreshAuthToken();
+        await this.refreshAuthToken(Math.min(AUTH_TIMEOUT_MS, remaining()));
         return send();
       }
       throw err;
@@ -476,10 +488,12 @@ export class AxencoClient {
       this.socketConnecting = false;
       this.socketReconnectAttempt = 0;
       this.logger.info('WebSocket connected to Axenco');
+      this.connectionCallbacks.forEach((callback) => callback());
     });
 
     this.socket.on('disconnect', (reason) => {
       this.socketConnecting = false;
+      this.connectionCallbacks.forEach((callback) => callback());
       this.logger.warn(`WebSocket disconnected from Axenco (${reason})`);
       // 'io client disconnect' is us calling disconnect(): stay down.
       if (reason !== 'io client disconnect') {
@@ -489,6 +503,7 @@ export class AxencoClient {
 
     this.socket.on('connect_error', (err) => {
       this.socketConnecting = false;
+      this.connectionCallbacks.forEach((callback) => callback());
       this.logger.error('WebSocket connection error', err && err.message ? err.message : err);
       this.scheduleSocketReconnect();
     });
@@ -601,6 +616,10 @@ export class AxencoClient {
    */
   registerAuthFailureCallback(callback) {
     this.authFailureCallbacks.push(callback);
+  }
+
+  registerConnectionCallback(callback) {
+    this.connectionCallbacks.push(callback);
   }
 
   /**

@@ -1,11 +1,12 @@
 # -----------------------------------------------------------------------------
 # Continuous integration: runs on every push and every pull request.
 #
-# Three gates, the same ones every developer inspired by this template should
+# Four gates, the same ones every developer inspired by this template should
 # keep:
 #   1. Prettier  -> consistent formatting (no style debates in reviews);
 #   2. ESLint    -> catch real mistakes (undefined vars, dead code, ...);
 #   3. Tests     -> `node --test`, the built-in runner (no extra dependency).
+#   4. Store     -> official manifest and documentation checks.
 #
 # Runs on Node 24, the version the Docker image ships with (see the Dockerfile),
 # so the check exercises the exact runtime the integration runs on.
@@ -16,6 +17,7 @@ on:
   push:
     branches:
       - main
+      - 'test/**'
   pull_request:
 
 jobs:
@@ -43,3 +45,6 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Validate integration store contract
+        run: npx --yes github:GladysAssistant/integration-store --skip-image-check .

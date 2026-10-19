@@ -87,18 +87,15 @@ Home Assistant.
 
 Deux choix de conception à connaître avant de lire le code.
 
-**Le mode est un jeu d'interrupteurs binaires exclusifs**, pas une liste
-déroulante. Gladys choisit son widget dans une table de types figée, et tous les
-widgets de liste ont leurs options codées en dur dans le front : l'interrupteur
-binaire est le seul contrôle modifiable dont les libellés et les valeurs nous
-appartiennent. Le raisonnement complet, y compris le bug `preact-i18n` amont qui
-disqualifie `supported_options`, est dans [`docs/fr.md`](docs/fr.md).
-
-**Les états publiés juste après une commande sont optimistes et peuvent être
-faux.** Axenco répond `200` à des valeurs que l'appareil ignore ensuite, et ces
-radiateurs perdent des commandes rapprochées. `src/gladys/reconciler.js` relit
-l'appareil 30 s plus tard et publie ce qu'il rapporte vraiment, en journalisant
-tout écart.
+**Version 1.1 : Gladys 5.2 minimum, SDK 0.15.** Les commandes standard et le
+widget complètent les interrupteurs historiques, dont les identifiants sont
+conservés. Le contrôle EV30 pour le thermostat natif protège Arrêt contre
+l'écriture de la consigne de repli et publie les températures observées.
+Les commandes historiques gardent leur retour optimiste et leur relecture à
+30 secondes. Lire le [guide de migration](docs/upgrade.fr.md) avant de choisir
+les fonctionnalités du thermostat et les correspondances du capteur fenêtre.
+La [liste de développement](docs/development-plan.md) distingue les contrôles
+automatisés des vérifications matérielles encore nécessaires.
 
 ## Développement
 
