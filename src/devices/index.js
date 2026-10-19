@@ -50,6 +50,11 @@ export function describeDevice(gladys, axencoDevice, options = {}) {
   const presetKeys = presetKeysFor(axencoDevice);
   const selectableKeys = selectablePresetKeys(axencoDevice);
   const ids = gladys.externalIds(DEVICE_TYPE, axencoDevice._id);
+  const created = (gladys.devices || []).find((device) => device.external_id === ids.device);
+  const legacyPresetKeys = selectableKeys.filter((key) =>
+    created?.features.some((feature) => feature.external_id === ids.feature(presetFeatureKey(key))),
+  );
+  const modeKeys = presetKeys.filter((key) => key !== 'setpoint' || profile.targetTempKey);
   const state = { ...(axencoDevice.state || {}) };
   const gateway = profile.subDevice ? extractGatewayId(axencoDevice.parents) : null;
 
@@ -85,6 +90,8 @@ export function describeDevice(gladys, axencoDevice, options = {}) {
         ids,
         profile,
         presetKeys: selectableKeys,
+        modeKeys,
+        legacyPresetKeys,
         state,
         model: axencoDevice.model,
         windowOpenValue: options.windowOpenValue,
@@ -148,6 +155,17 @@ export function buildStates(entry, patch) {
         : `Inconnu (${modeCode})`,
     });
     if (profile.presetRendering === 'switches') {
+      states.push({
+        device_feature_external_id: ids.feature(FEATURE.MODE_SELECT),
+        // Nonempty text is required on the real core's newStateEvent path.
+        // An unknown code must not leave the last recognized mode selected.
+        text:
+          activeKey && (activeKey !== 'setpoint' || profile.targetTempKey)
+            ? activeKey
+            : `unknown:${modeCode}`,
+      });
+    }
+    if (profile.presetRendering === 'switches') {
       for (const presetKey of selectableKeys) {
         push(presetFeatureKey(presetKey), presetKey === activeKey ? 1 : 0);
       }
@@ -204,7 +222,7 @@ export function buildStates(entry, patch) {
  * @param {object} client - The Axenco client.
  * @param {object} entry - A registry entry.
  * @param {string} featureKey - The feature key being written.
- * @param {number} value - The value Gladys sent.
+ * @param {number|string} value - The numeric or select value Gladys sent.
  * @returns {Promise<Array<object>>} States ready for `publishStates`.
  * @example
  * await handleSetValue(client, entry, 'preset:comfort', 1);
@@ -222,6 +240,23 @@ export async function handleSetValue(client, entry, featureKey, value) {
   }
   if (featureKey === STANDARD.RELAY) {
     return setPreset(client, entry, binary(value) ? 'on' : 'off', 1);
+  }
+  if (featureKey === FEATURE.MODE_SELECT) {
+    if (
+      typeof value !== 'string' ||
+      !declared.supported_options.some((option) => option.value === value)
+    )
+      throw new Error(`Unknown preset for model ${entry.model}`);
+    if (value === 'setpoint') {
+      // Mode 8 alone is ignored. Enter an override using the existing,
+      // observed target and the same captured temperature payload as before.
+      return setTargetTemperature(
+        client,
+        entry,
+        pickTargetTemp(entry.profile, entry.observedState),
+      );
+    }
+    return setPreset(client, entry, value, 1);
   }
   if (featureKey === STANDARD.PILOT) {
     if (!Number.isInteger(value) || !PILOT_PRESETS[value])

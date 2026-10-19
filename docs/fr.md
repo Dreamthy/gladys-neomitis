@@ -55,19 +55,25 @@ l'appareil et l'adresse par son `rfid`.
 
 ## Features créées dans Gladys
 
-Un appareil Axenco devient **un appareil Gladys portant plusieurs features** —
-Gladys n'a pas d'entité `climate` regroupant température, consigne et mode
-comme Home Assistant.
+Un appareil Axenco devient **un appareil Gladys portant plusieurs fonctionnalités**.
+Il fonctionne de manière autonome : créer un thermostat Gladys est facultatif.
 
 - **Température actuelle** — capteur, en °C, historisée (graphiques).
 - **Température cible** — consigne réglable. Ses bornes viennent de l'appareil
   lui-même (`comfLimitMin` / `comfLimitMax`), pas d'un 7–30 °C figé : un
   radiateur limité à 16–21 °C affichera bien 16–21 °C.
+- **Mode Axenco** — sélecteur unique des modes propres au modèle : Confort,
+  Éco, Auto, Boost, Veille, etc. Il fonctionne sans thermostat Gladys.
+  L'option **Dérogation (consigne actuelle)**, sur les appareils régulant une
+  température, réutilise la dernière consigne Axenco observée. Pour choisir une
+  autre température, régler **Température cible** ou utiliser le widget.
 - **Mode actuel** — texte en lecture seule : « Confort », « Éco », « Boost »…
   En Auto, il précise le côté du programme en cours : « Auto (Confort) » ou
-  « Auto (Éco) ». L'interrupteur, lui, reste un seul « Auto ».
-- **Un interrupteur par mode** — « Auto », « Confort », « Éco », « Hors gel »,
-  « Boost », « Veille »… selon le modèle. Auto est un mode comme les autres
+  « Auto (Éco) ». Le sélecteur reste sur « Auto ».
+- **Anciens interrupteurs de modes** — « Auto », « Confort », « Éco »,
+  « Hors gel », « Boost », « Veille »… Ils sont conservés uniquement lorsqu'ils
+  existent déjà dans Gladys, pour préserver vos scènes. Les nouveaux appareils
+  utilisent le sélecteur à leur place. Auto est un mode comme les autres
   (`targetMode: 0`) : le sélectionner sort des modes manuels, et inversement.
 - **Consigne Confort / Consigne Éco / Consigne Hors gel** — les températures
   que les modes utilisent, réglables. À ne pas confondre avec la Température
@@ -89,7 +95,7 @@ comme Home Assistant.
   valeur non nulle est probablement un code. Ni `pyaxencoapi` ni l'intégration
   Home Assistant ne les exposent.
 
-Les interrupteurs de mode sont **exclusifs** : en activer un envoie ce mode à
+Les anciens interrupteurs de mode sont **exclusifs** : en activer un envoie ce mode à
 Axenco et éteint les autres dans la foulée. Les **éteindre** directement ne
 fait rien — un appareil Axenco est toujours dans un mode, il n'existe pas de
 « aucun mode » à envoyer ; l'interrupteur revient donc à son état réel.

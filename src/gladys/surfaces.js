@@ -9,7 +9,16 @@ export function registerSurfaces(gladys, { findEntry, command, status }) {
     if (!entry.selectableKeys.includes(mode)) throw new Error('Mode unsupported by this device');
     if (entry.profile.presetRendering === 'binary')
       await command(device, FEATURE.COOLING, mode === 'cooling' ? 1 : 0);
-    else await command(device, presetFeatureKey(mode), 1);
+    else {
+      const created = gladys.devices.find((item) => item.external_id === entry.ids.device);
+      if (
+        created?.features.some(
+          (feature) => feature.external_id === entry.ids.feature(FEATURE.MODE_SELECT),
+        )
+      )
+        await command(device, FEATURE.MODE_SELECT, mode);
+      else await command(device, presetFeatureKey(mode), 1);
+    }
   };
   const setTemperature = async (device, temperature) => {
     findEntry(device);

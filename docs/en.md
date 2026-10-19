@@ -54,19 +54,24 @@ by its `rfid`.
 
 ## Features created in Gladys
 
-One Axenco device becomes **one Gladys device carrying several features** —
-Gladys has no `climate` entity bundling temperature, setpoint and mode the way
-Home Assistant does.
+One Axenco device becomes **one Gladys device carrying several features**.
+It works independently: creating a Gladys thermostat is optional.
 
 - **Current temperature** — sensor, in °C, with history (charts).
 - **Target temperature** — writable setpoint. Its bounds come from the device
   itself (`comfLimitMin` / `comfLimitMax`) rather than a hard-coded 7–30 °C: a
   heater limited to 16–21 °C really shows 16–21 °C.
+- **Mode Axenco** — one selector for the modes supported by the model:
+  Comfort, Eco, Auto, Boost, Standby, etc. It works without a Gladys thermostat.
+  On temperature-regulating devices, **Dérogation (consigne actuelle)** applies
+  the last observed Axenco target. To choose another temperature, change
+  **Température cible** or use the widget.
 - **Current mode** — read-only text: "Confort", "Éco", "Boost"… In Auto it
   says which side of the schedule is running: "Auto (Confort)" or
-  "Auto (Éco)". The switch itself stays a single "Auto".
-- **One switch per mode** — "Auto", "Confort", "Éco", "Hors gel", "Boost",
-  "Veille"… depending on the model. Auto is a mode like any other
+  "Auto (Éco)". The selector stays on "Auto".
+- **Legacy mode switches** — "Auto", "Confort", "Éco", "Hors gel", "Boost",
+  "Veille"… These are retained only when already created in Gladys, preserving
+  existing scenes. New devices use the selector instead. Auto is a mode like any other
   (`targetMode: 0`): picking it leaves the manual modes, and vice versa.
 - **Consigne Confort / Consigne Éco / Consigne Hors gel** — the temperatures
   the modes use, writable. Not to be confused with the target temperature
@@ -89,7 +94,7 @@ Home Assistant does.
 Feature names are in French, matching the MyNeomitis app and the Neomitis
 product range.
 
-Mode switches are **exclusive**: turning one on sends that mode to Axenco and
+Legacy mode switches are **exclusive**: turning one on sends that mode to Axenco and
 turns the others off in the same batch. Turning one **off** does nothing — an
 Axenco device is always in some mode, there is no "no mode" to send, so the
 switch snaps back to reality.

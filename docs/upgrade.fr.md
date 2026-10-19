@@ -15,6 +15,26 @@ nouvelles commandes, même si le planning Gladys continue à tourner localement.
 3. Les nouvelles fonctionnalités ne reçoivent des états qu'une fois créées.
 4. Choisir un seul responsable du planning d'une zone : Gladys ou MyNeomitis.
 
+## Pilotage direct, sans thermostat Gladys
+
+Le thermostat Gladys est optionnel, appareil par appareil. **Mode Axenco**
+permet de sélectionner directement les modes du radiateur ; **Température
+cible** applique une dérogation. Le programme fabricant, les consignes par
+mode, les capteurs, le widget Neomitis et les actions de scène restent
+utilisables sans créer de thermostat Gladys.
+
+Après un scan, utiliser **Mettre à jour** dans Découverte pour ajouter le
+sélecteur à un appareil existant. Ses anciens interrupteurs de modes restent
+présents avec leurs identifiants pour les scènes existantes. Les nouveaux
+appareils utilisent le sélecteur et ne créent plus ces interrupteurs.
+
+**Dérogation (consigne actuelle)** réutilise la dernière consigne Axenco
+observée, avec les mêmes contrôles de bornes que l'ancienne commande de
+température. Pour choisir une autre valeur, régler **Température cible**.
+Les codes Auto `0`, `60` et `61` sont regroupés en une option Auto ; le texte
+**Mode actuel** garde la distinction Confort/Éco et signale les codes inconnus.
+Un code inconnu ne devient jamais une commande proposée par le sélecteur.
+
 ## EV30 : thermostat réel dans Gladys
 
 Créer un **thermostat réel** dans **Intégrations → Thermostat** et sélectionner :

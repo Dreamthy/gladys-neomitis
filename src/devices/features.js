@@ -1,5 +1,5 @@
-// One Axenco device keeps its historical feature ids and exclusive preset
-// switches so existing Gladys scenes remain valid. Gladys 5.2 adds a separate
+// One Axenco device uses a mode selector; existing preset switches keep
+// their historical feature ids so existing Gladys scenes remain valid. Gladys 5.2 adds a separate
 // EV30 thermostat pair, an EWS binary relay and standard pilot-wire controls.
 // The full Axenco preset list is also available in the integration widget.
 // Unknown reported modes remain visible through the legacy text feature.
@@ -19,6 +19,7 @@ export const FEATURE = {
   CURRENT_TEMP: 'current-temperature',
   TARGET_TEMP: 'target-temperature',
   MODE: 'mode',
+  MODE_SELECT: 'axenco-mode',
   COOLING: 'cooling',
 };
 
@@ -181,7 +182,16 @@ function withSelector(feature) {
  * @example
  * buildFeatures({ ids, profile, presetKeys, state });
  */
-export function buildFeatures({ ids, profile, presetKeys, state, model, windowOpenValue = null }) {
+export function buildFeatures({
+  ids,
+  profile,
+  presetKeys,
+  modeKeys = presetKeys,
+  legacyPresetKeys = [],
+  state,
+  model,
+  windowOpenValue = null,
+}) {
   const features = [];
   const add = (key, name, category, type, min, max, extra = {}) =>
     features.push(
@@ -313,6 +323,7 @@ export function buildFeatures({ ids, profile, presetKeys, state, model, windowOp
 
   if (profile.presetRendering === 'switches') {
     for (const presetKey of presetKeys) {
+      if (!legacyPresetKeys.includes(presetKey)) continue;
       const preset = PRESETS[presetKey];
       if (!preset) {
         continue;
@@ -403,6 +414,24 @@ export function buildFeatures({ ids, profile, presetKeys, state, model, windowOp
         has_feedback: profile.presetRendering === 'binary',
         keep_history: false,
       }),
+    );
+  }
+
+  if (profile.presetRendering === 'switches') {
+    add(
+      FEATURE.MODE_SELECT,
+      'Mode Axenco',
+      DEVICE_FEATURE_CATEGORIES.TEXT,
+      DEVICE_FEATURE_TYPES.TEXT.SELECT,
+      0,
+      0,
+      {
+        supported_options: modeKeys.map((key, index) => ({
+          value: key,
+          label: key === 'setpoint' ? 'Dérogation (consigne actuelle)' : PRESETS[key].label,
+          sort_order: index,
+        })),
+      },
     );
   }
 

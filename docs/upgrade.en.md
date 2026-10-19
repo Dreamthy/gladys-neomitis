@@ -11,6 +11,23 @@ each existing device. Do not delete and recreate devices. All legacy external
 ids are retained, so existing scenes can keep using them. New states are only
 published after their features have been created by the user.
 
+## Direct control without a Gladys thermostat
+
+A Gladys thermostat is optional for each device. **Mode Axenco** selects the
+manufacturer modes directly; **Température cible** applies an override.
+Manufacturer schedules, per-mode setpoints, sensors, the Neomitis widget and
+scene actions remain usable without creating a Gladys thermostat.
+
+Scan and choose **Update** in Discovery to add the selector to an existing
+device. Legacy mode switches retain their identifiers for existing scenes;
+newly created devices use the selector without those switches.
+
+**Dérogation (consigne actuelle)** reuses the last observed Axenco target,
+with the same range validation as the existing temperature command. To use
+another value, change **Température cible**. Auto codes `0`, `60` and `61`
+share one Auto option; **Mode actuel** still distinguishes Auto Comfort/Eco
+and reports unknown codes. Unknown codes are never offered as commands.
+
 ## EV30: real thermostat
 
 Create a **real thermostat** in Gladys's Thermostat integration. Select

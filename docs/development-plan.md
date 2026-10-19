@@ -22,6 +22,8 @@ Les détails d'utilisation sont dans le [guide de migration](upgrade.fr.md).
 - [x] Actualiser les documentations française et anglaise et fournir les instructions de migration sans recréation des appareils.
 - [x] Vérifier les tests automatisés, ESLint, Prettier et le manifeste avec le validateur officiel.
 
+- [x] Ajouter un sélecteur Mode Axenco sur les appareils à plusieurs modes, sans imposer un thermostat Gladys ; conserver les anciens interrupteurs déjà créés et utiliser le sélecteur pour les nouveaux appareils.
+
 ## Vérifications matérielles et publication restantes
 
 Ces points ne peuvent pas être validés par les tests logiciels seuls :

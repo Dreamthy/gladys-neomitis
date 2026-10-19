@@ -78,13 +78,17 @@ integration.
 | `src/axenco/const.js`               | Presets, per-model mode lists, protocol constants                                   |
 | `src/axenco/utils.js`               | Gateway / `rfid` / `parents` helpers                                                |
 | `src/devices/profiles.js`           | What each model exposes, as capabilities                                            |
-| `src/devices/features.js`           | The Gladys feature layout, and why the mode is a set of switches                    |
+| `src/devices/features.js`           | The Gladys feature layout, mode selector and legacy switch compatibility            |
 | `src/devices/index.js`              | Axenco state ⇄ Gladys states, and command routing                                   |
 | `src/gladys/publisher.js`           | Deduplication, batching, transport badge                                            |
 | `src/gladys/reconciler.js`          | Post-command re-read: Axenco answers `200` even when the device ignores the command |
 | `src/config.js` · `src/selector.js` | Configuration defaults, collision-free selectors                                    |
 
 Two design points worth knowing before reading the code:
+
+**Direct control or Gladys thermostat:** **Mode Axenco** groups manufacturer
+modes in one selector. New devices use it; legacy switches already created
+remain available for existing scenes.
 
 **Version 1.1 requires Gladys 5.2 and SDK 0.15.** Standard controls and a
 summary widget complement the legacy switches, whose identifiers are retained.

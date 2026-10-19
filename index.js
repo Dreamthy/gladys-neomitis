@@ -102,6 +102,7 @@ export async function createIntegration(options = {}) {
   }
 
   function confirmedStates(entry, patch) {
+    Object.assign(entry.observedState, patch);
     return [...buildStates(entry, patch), ...thermostat.observe(entry, patch)];
   }
 

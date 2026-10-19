@@ -142,9 +142,9 @@ test('stale queued commands emit a failure event without reaching Axenco', async
     new Promise((resolve) => {
       release = resolve;
     });
-  const first = app.command(description.ids.device, 'preset:comfort', 1);
+  const first = app.command(description.ids.device, 'axenco-mode', 'comfort');
   await new Promise((resolve) => setImmediate(resolve));
-  const queued = app.command(description.ids.device, 'preset:eco', 1);
+  const queued = app.command(description.ids.device, 'axenco-mode', 'eco');
   const rejected = assert.rejects(queued, /expired/);
   t.mock.timers.tick(1001);
   release();
@@ -164,13 +164,89 @@ test('stopping the integration prevents pending commands from being sent', async
       release = resolve;
     });
   };
-  const first = app.command(description.ids.device, 'preset:comfort', 1);
+  const first = app.command(description.ids.device, 'axenco-mode', 'comfort');
   await new Promise((resolve) => setImmediate(resolve));
-  const queued = app.command(description.ids.device, 'preset:eco', 1);
+  const queued = app.command(description.ids.device, 'axenco-mode', 'eco');
   const rejected = assert.rejects(queued, /stopping/);
   await app.stop();
   release();
   await first;
   await rejected;
   assert.equal(sent, 1);
+});
+
+test('SDK text selector controls the heater without creating a Gladys thermostat and follows push states', async (t) => {
+  const { gladys, description, client, listeners, raw } = await runtime(t);
+  const select = description.gladysDevice.features.find(
+    (f) => f.external_id === description.ids.feature('axenco-mode'),
+  );
+  assert.ok(select);
+  assert.equal(
+    description.gladysDevice.features.some((f) => f.external_id.includes(':preset:')),
+    false,
+  );
+  assert.equal(gladys.fake.lastState(select.external_id), 'setpoint');
+  assert.equal((await gladys.fake.setValue(description.gladysDevice, select, 'eco')).success, true);
+  assert.deepEqual(client.calls[0], { name: 'setDeviceMode', args: [raw._id, 2] });
+  assert.equal(gladys.fake.lastState(select.external_id), 'eco');
+  listeners.get(raw._id)({ targetMode: 61 });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(gladys.fake.lastState(select.external_id), 'auto');
+  listeners.get(raw._id)({ targetMode: 42 });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(gladys.fake.lastState(select.external_id), 'unknown:42');
+  const count = client.calls.length;
+  assert.equal(
+    (await gladys.fake.setValue(description.gladysDevice, select, 'comfort_plus')).success,
+    false,
+  );
+  assert.equal(client.calls.length, count);
+});
+
+test('scenes on an existing device work before and after accepting the new selector', async (t) => {
+  const { app, gladys, client, description } = await runtime(t);
+  const device = description.gladysDevice;
+  device.features = device.features.filter(
+    (f) => f.external_id !== description.ids.feature('axenco-mode'),
+  );
+  device.features.push({
+    name: 'Éco',
+    external_id: description.ids.feature('preset:eco'),
+    category: 'switch',
+    type: 'binary',
+    min: 0,
+    max: 1,
+    read_only: false,
+    has_feedback: true,
+    keep_history: false,
+  });
+  gladys.fake.devices = [device];
+  await gladys.fake.deviceUpdated(device);
+  await app.refresh();
+  assert.equal(
+    (await gladys.fake.sceneAction('choose_mode', { device: description.ids.device, mode: 'eco' }))
+      .success,
+    true,
+  );
+  const updated = gladys.fake.discoveredDevices.at(-1);
+  assert.ok(updated.features.some((f) => f.external_id === description.ids.feature('preset:eco')));
+  assert.ok(updated.features.some((f) => f.external_id === description.ids.feature('axenco-mode')));
+  await gladys.fake.deviceUpdated(updated);
+  assert.equal(
+    (
+      await gladys.fake.sceneAction('choose_mode', {
+        device: description.ids.device,
+        mode: 'comfort',
+      })
+    ).success,
+    true,
+  );
+  const legacy = updated.features.find(
+    (f) => f.external_id === description.ids.feature('preset:eco'),
+  );
+  assert.equal((await gladys.fake.setValue(updated, legacy, 1)).success, true);
+  assert.deepEqual(
+    client.calls.map((c) => c.args[1]),
+    [2, 1, 2],
+  );
 });

@@ -143,7 +143,7 @@ test('native controls preserve device bounds and reject unsupported steps', asyn
 
 test('native observations cannot inherit optimistic legacy mode changes', async (t) => {
   const { control, entry, client } = harness(t, { state: { comfTemp: 21 } });
-  await handleSetValue(client, entry, 'preset:comfort', 1);
+  await handleSetValue(client, entry, 'axenco-mode', 'comfort');
   assert.equal(entry.state.targetMode, 1, 'legacy state is optimistic');
   const feedback = control.observe(entry, { currentTemp: 19.1 });
   assert.equal(
@@ -322,7 +322,7 @@ test('SDK fake validates discovery, widget forms and scene action acknowledgemen
   assert.deepEqual(validateWidgetContent(ack.data.content), []);
   const scene = await gladys.fake.sceneAction('resume_program', { device: entry.ids.device });
   assert.equal(scene.success, true);
-  assert.deepEqual(commands[0], [entry.ids.device, 'preset:auto', 1]);
+  assert.deepEqual(commands[0], [entry.ids.device, 'axenco-mode', 'auto']);
   const widgetMode = await gladys.fake.widgetAction(
     'heater',
     'mode',
@@ -333,7 +333,7 @@ test('SDK fake validates discovery, widget forms and scene action acknowledgemen
     },
   );
   assert.equal(widgetMode.success, true);
-  assert.deepEqual(commands[1], [entry.ids.device, 'preset:eco', 1]);
+  assert.deepEqual(commands[1], [entry.ids.device, 'axenco-mode', 'eco']);
   const widgetTemperature = await gladys.fake.widgetAction(
     'heater',
     'temperature',

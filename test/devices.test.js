@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { PRESETS } from '../src/axenco/const.js';
+import { PRESETS, selectablePresetKeys } from '../src/axenco/const.js';
 import {
   buildStates,
   describeDevice,
@@ -16,7 +16,25 @@ import {
   axencoThermostat,
 } from './helpers/fakes.js';
 
-const describe_ = (device) => describeDevice(fakeGladys, device);
+// Existing devices keep their legacy preset features. New-device tests below
+// use describeDevice directly, without this compatibility fixture.
+const describe_ = (device) => {
+  const ids = fakeGladys.externalIds('axenco', device._id);
+  return describeDevice(
+    {
+      ...fakeGladys,
+      devices: [
+        {
+          external_id: ids.device,
+          features: selectablePresetKeys(device).map((key) => ({
+            external_id: ids.feature(`preset:${key}`),
+          })),
+        },
+      ],
+    },
+    device,
+  );
+};
 const featureNames = (entry) => entry.gladysDevice.features.map((feature) => feature.name);
 const stateFor = (states, entry, key) =>
   states.find((state) => state.device_feature_external_id === entry.ids.feature(key));
@@ -72,7 +90,9 @@ test('discovery option labels follow the host API string contract', () => {
         const location = `${device.model}/${feature.name}/${option.value}`;
         assert.equal(typeof option.label, 'string', `${location}: label must be a string`);
         assert.ok(option.label.trim().length > 0, `${location}: label cannot be empty`);
-        assert.ok(Number.isFinite(option.value), `${location}: value must be numeric`);
+        if (feature.category === 'text' && feature.type === 'select')
+          assert.equal(typeof option.value, 'string', `${location}: select value must be text`);
+        else assert.ok(Number.isFinite(option.value), `${location}: value must be numeric`);
       }
     }
   }
@@ -95,6 +115,7 @@ test('a thermostat exposes temperatures, the mode and the selectable presets', (
     'Auto',
     'Hors gel',
     'Veille',
+    'Mode Axenco',
   ]);
   assert.ok(!featureNames(entry).includes('Dérogation'));
 });
@@ -127,6 +148,7 @@ test('an EWS relay exposes On/Off/Auto', () => {
     'Marche',
     'Arrêt',
     'Auto',
+    'Mode Axenco',
   ]);
 });
 
@@ -146,6 +168,7 @@ test('an EWS fil pilote exposes the seven orders the module really emits', () =>
     'Auto',
     'Hors gel',
     'Veille',
+    'Mode Axenco',
   ]);
   // Ignored twice by the hardware, and absent from the manual.
   for (const phantom of ['Dérogation', 'Confort +']) {

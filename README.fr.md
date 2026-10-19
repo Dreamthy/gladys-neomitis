@@ -79,13 +79,17 @@ Home Assistant.
 | `src/axenco/const.js`               | Presets, listes de modes par modèle, constantes du protocole                                         |
 | `src/axenco/utils.js`               | Aides passerelle / `rfid` / `parents`                                                                |
 | `src/devices/profiles.js`           | Ce que chaque modèle expose, sous forme de capacités                                                 |
-| `src/devices/features.js`           | La composition des features Gladys, et pourquoi le mode est un jeu d'interrupteurs                   |
+| `src/devices/features.js`           | La composition des features Gladys, sélecteur de modes et compatibilité historique                   |
 | `src/devices/index.js`              | État Axenco ⇄ états Gladys, et routage des commandes                                                 |
 | `src/gladys/publisher.js`           | Déduplication, découpage en lots, badge de transport                                                 |
 | `src/gladys/reconciler.js`          | Relecture après commande : Axenco répond `200` même quand l'appareil ignore l'ordre                  |
 | `src/config.js` · `src/selector.js` | Valeurs de configuration par défaut, sélecteurs sans collision                                       |
 
 Deux choix de conception à connaître avant de lire le code.
+
+**Pilotage direct ou thermostat Gladys :** le sélecteur **Mode Axenco**
+regroupe les modes du radiateur. Les nouveaux appareils utilisent ce menu ;
+les anciens interrupteurs déjà créés restent disponibles pour les scènes.
 
 **Version 1.1 : Gladys 5.2 minimum, SDK 0.15.** Les commandes standard et le
 widget complètent les interrupteurs historiques, dont les identifiants sont
