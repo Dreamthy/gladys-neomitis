@@ -44,8 +44,9 @@ l'installer. Aucun tag de version officielle ni `latest` n'est mis à jour.
   non confirmée. Un accusé de réception ne prouve pas l'exécution matérielle.
 - Vérifier le relais EWS si vous en possédez un. Le fil pilote ne peut pas
   servir directement d'actionneur au thermostat virtuel Gladys.
-- N'activer le nouveau contact fenêtre qu'après vérification de `windowStatus`
-  pendant une ouverture et une fermeture.
+- Sélectionner **Contact fenêtre pour thermostat** si cette
+  fonctionnalité est proposée, puis vérifier la suspension et la reprise du
+  chauffage lors d'une détection d'ouverture. La correspondance est automatique.
 
 Ne pas élargir les bornes annoncées par l'appareil pour cet essai. Si la borne
 minimale est 16 °C, une consigne numérique Hors gel à 7 °C reste hors plage.

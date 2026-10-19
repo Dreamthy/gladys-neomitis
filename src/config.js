@@ -22,9 +22,6 @@ export function normalizeConfig(rawConfig = {}) {
   return {
     email: typeof rawConfig.email === 'string' ? rawConfig.email.trim() : '',
     password: typeof rawConfig.password === 'string' ? rawConfig.password : '',
-    windowOpenValue: ['0', '1'].includes(rawConfig.window_open_value)
-      ? Number(rawConfig.window_open_value)
-      : null,
     refreshInterval: Number.isFinite(refreshInterval)
       ? Math.min(Math.max(refreshInterval, MIN_REFRESH_INTERVAL), MAX_REFRESH_INTERVAL)
       : DEFAULT_REFRESH_INTERVAL,

@@ -97,7 +97,7 @@ conservés. Le contrôle EV30 pour le thermostat natif protège Arrêt contre
 l'écriture de la consigne de repli et publie les températures observées.
 Les commandes historiques gardent leur retour optimiste et leur relecture à
 30 secondes. Lire le [guide de migration](docs/upgrade.fr.md) avant de choisir
-les fonctionnalités du thermostat et les correspondances du capteur fenêtre.
+les fonctionnalités du thermostat et son contact fenêtre.
 La [liste de développement](docs/development-plan.md) distingue les contrôles
 automatisés des vérifications matérielles encore nécessaires.
 

@@ -8,7 +8,6 @@ test('an empty configuration is usable and reports missing credentials', () => {
   assert.deepEqual(config, {
     email: '',
     password: '',
-    windowOpenValue: null,
     refreshInterval: DEFAULT_REFRESH_INTERVAL,
   });
   assert.equal(hasCredentials(config), false);
@@ -29,4 +28,9 @@ test('the refresh interval is clamped to a sane range', () => {
     normalizeConfig({ refresh_interval: 'nope' }).refreshInterval,
     DEFAULT_REFRESH_INTERVAL,
   );
+});
+
+test('stored window polarity from a previous test version is ignored', () => {
+  for (const value of ['0', '1', 'disabled'])
+    assert.deepEqual(normalizeConfig({ window_open_value: value }), normalizeConfig());
 });

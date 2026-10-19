@@ -79,42 +79,6 @@
       "default": 300,
       "min": 60,
       "max": 3600
-    },
-    {
-      "key": "window_open_value",
-      "type": "select",
-      "label": {
-        "en": "Axenco window contact polarity",
-        "fr": "Correspondance du contact fenêtre Axenco"
-      },
-      "description": {
-        "en": "Enable only after checking the raw windowStatus on your device. Legacy window features are unchanged.",
-        "fr": "À activer après vérification du champ windowStatus sur votre appareil. Le capteur historique reste inchangé."
-      },
-      "default": "disabled",
-      "options": [
-        {
-          "value": "disabled",
-          "label": {
-            "en": "Not verified (disabled)",
-            "fr": "Non vérifié (désactivé)"
-          }
-        },
-        {
-          "value": "1",
-          "label": {
-            "en": "1 / true means open",
-            "fr": "1 / vrai signifie ouvert"
-          }
-        },
-        {
-          "value": "0",
-          "label": {
-            "en": "0 / false means open",
-            "fr": "0 / faux signifie ouvert"
-          }
-        }
-      ]
     }
   ],
   "scene_actions": [

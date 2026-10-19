@@ -190,7 +190,6 @@ export function buildFeatures({
   legacyPresetKeys = [],
   state,
   model,
-  windowOpenValue = null,
 }) {
   const features = [];
   const add = (key, name, category, type, min, max, extra = {}) =>
@@ -261,7 +260,7 @@ export function buildFeatures({
       },
     );
   }
-  if (windowOpenValue !== null && state.windowStatus !== undefined) {
+  if ([true, false, 0, 1].includes(state.windowStatus)) {
     add(
       STANDARD.WINDOW,
       'Contact fenêtre pour thermostat',

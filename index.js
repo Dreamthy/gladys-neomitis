@@ -360,7 +360,7 @@ export async function createIntegration(options = {}) {
     registry = new Map();
     entryByDeviceExternalId = new Map();
     for (const axencoDevice of supported) {
-      const description = describeDevice(gladys, axencoDevice, config);
+      const description = describeDevice(gladys, axencoDevice);
       const entry = Object.assign(previous.get(axencoDevice._id) || {}, description);
       registry.set(entry.axencoId, entry);
       entryByDeviceExternalId.set(entry.ids.device, entry);

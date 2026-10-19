@@ -43,7 +43,7 @@ export { DEVICE_TYPE, FEATURE } from './features.js';
  * @example
  * const entry = describeDevice(gladys, axencoDevice);
  */
-export function describeDevice(gladys, axencoDevice, options = {}) {
+export function describeDevice(gladys, axencoDevice) {
   const profile = profileFor(axencoDevice.model);
   // Two lists on purpose: every preset the model can REPORT (to decode a mode
   // into a label) and the subset a user can actually SELECT (the switches).
@@ -79,7 +79,6 @@ export function describeDevice(gladys, axencoDevice, options = {}) {
     rfid: axencoDevice.rfid,
     state,
     observedState: { ...state },
-    windowOpenValue: options.windowOpenValue ?? null,
     connected: Boolean(axencoDevice.connected),
     gladysDevice: {
       name: axencoDevice.name || axencoDevice._id,
@@ -94,7 +93,6 @@ export function describeDevice(gladys, axencoDevice, options = {}) {
         legacyPresetKeys,
         state,
         model: axencoDevice.model,
-        windowOpenValue: options.windowOpenValue,
       }),
     },
   };
@@ -204,10 +202,10 @@ export function buildStates(entry, patch) {
     if (entry.model === 'EV30' && presetKeyFromCode(presetKeys, modeCode))
       push(STANDARD.MODE, modeCode === PRESETS.standby.code ? 0 : 1);
   }
-  if (entry.windowOpenValue !== null && patch.windowStatus !== undefined) {
+  if (patch.windowStatus !== undefined) {
     const raw = patch.windowStatus;
     if ([true, false, 0, 1].includes(raw)) {
-      push(STANDARD.WINDOW, Number(raw) === entry.windowOpenValue ? 0 : 1);
+      push(STANDARD.WINDOW, raw ? 0 : 1);
     }
   }
   // Do not publish phantom setpoints on EWS, or features that appeared after

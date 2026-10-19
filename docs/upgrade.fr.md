@@ -111,16 +111,20 @@ validation matérielle, notamment des sous-appareils et de leur passerelle.
 
 ## Fenêtre ouverte
 
-Le capteur historique **Fenêtre ouverte** garde son identifiant et ses valeurs.
-Pour le thermostat, vérifier d'abord le champ brut `windowStatus` pendant une
-ouverture et une fermeture, puis régler **Correspondance du contact fenêtre
-Axenco** dans la configuration : `1 / vrai signifie ouvert` ou l'inverse.
-Le défaut reste **Non vérifié (désactivé)**.
+La correspondance du champ Axenco est commune aux appareils pris en charge :
+`windowStatus: false` signifie fermé et `true` signifie ouverture détectée.
+Lorsque l'appareil remonte ce champ comme booléen (ou comme `0` / `1`), l'intégration propose automatiquement **Contact fenêtre pour
+thermostat**, avec les valeurs attendues par Gladys : `1` fermé et `0` ouvert.
+Il n'y a plus de réglage de correspondance dans la configuration.
 
-Après un scan et la mise à jour de l'appareil, sélectionner le nouveau
-**Contact fenêtre pour thermostat** : il traduit l'ouverture en `0` et la
-fermeture en `1`, comme attendu par Gladys. Ne pas utiliser le capteur
-historique pour cette protection sans vérifier ses valeurs.
+Après un scan et la mise à jour de l'appareil, sélectionner cette
+fonctionnalité dans le thermostat si l'on souhaite suspendre le chauffage
+pendant une détection d'ouverture. Le capteur historique **Fenêtre ouverte**
+garde son identifiant et ses anciennes valeurs pour les scènes existantes.
+
+Les appareils qui ne remontent pas ce champ n'exposent pas de contact fenêtre.
+Cette traduction du capteur est indépendante de la prise en charge des
+commandes du thermostat natif, qui reste propre au modèle.
 
 ## Widget, scènes et diagnostics
 

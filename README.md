@@ -96,7 +96,7 @@ The EV30 native thermostat controls keep OFF effective across the frost
 fallback and publish observed temperatures. Legacy commands keep their
 optimistic feedback and 30-second reconciliation. Read the
 [migration guide](docs/upgrade.en.md) before selecting thermostat features or
-configuring window polarity. The [development checklist](docs/development-plan.md)
+selecting the thermostat window contact. The [development checklist](docs/development-plan.md)
 records automated validation and the remaining hardware checks.
 
 ## Development

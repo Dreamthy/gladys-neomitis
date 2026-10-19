@@ -13,7 +13,6 @@ import { createControlStore } from '../src/gladys/control-store.js';
 import { registerSurfaces } from '../src/gladys/surfaces.js';
 import { createPublisher } from '../src/gladys/publisher.js';
 import { createReconciler } from '../src/gladys/reconciler.js';
-import { normalizeConfig } from '../src/config.js';
 import {
   fakeGladys,
   fakeAxencoClient,
@@ -206,23 +205,75 @@ test('relay switch really sends OFF and pilot-wire values are translated', async
   await assert.rejects(() => handleSetValue(client, pilot, STANDARD.PILOT, 6));
 });
 
-test('window polarity is explicit and legacy window states are preserved', () => {
-  assert.equal(normalizeConfig().windowOpenValue, null);
-  const raw = axencoThermostat({ state: { windowStatus: true } });
-  const entry = describeDevice(fakeGladys, raw, { windowOpenValue: 1 });
-  const states = buildStates(entry, raw.state);
-  assert.equal(states.find((s) => s.device_feature_external_id.endsWith(':open-window')).state, 1);
-  assert.equal(
-    states.find((s) => s.device_feature_external_id.endsWith(':window-contact')).state,
-    0,
-  );
-  const inverted = describeDevice(fakeGladys, raw, { windowOpenValue: 0 });
-  assert.equal(
-    buildStates(inverted, raw.state).find((s) =>
-      s.device_feature_external_id.endsWith(':window-contact'),
-    ).state,
-    1,
-  );
+test('window contact mapping is automatic and legacy states are preserved', () => {
+  for (const [rawValue, legacyValue, thermostatValue] of [
+    [true, 1, 0],
+    [false, 0, 1],
+    [1, 1, 0],
+    [0, 0, 1],
+  ]) {
+    const raw = axencoThermostat({ state: { windowStatus: rawValue } });
+    const entry = describeDevice(fakeGladys, raw);
+    const states = buildStates(entry, raw.state);
+    assert.equal(
+      states.find((s) => s.device_feature_external_id.endsWith(':open-window')).state,
+      legacyValue,
+    );
+    assert.equal(
+      states.find((s) => s.device_feature_external_id.endsWith(':window-contact')).state,
+      thermostatValue,
+    );
+  }
+});
+
+test('unreported or invalid window fields do not create thermostat contacts', () => {
+  for (const value of [undefined, null, 'false', 2]) {
+    const entry = describeDevice(fakeGladys, axencoThermostat({ state: { windowStatus: value } }));
+    assert.equal(
+      entry.gladysDevice.features.some((f) => f.external_id.endsWith(':window-contact')),
+      false,
+    );
+    assert.equal(
+      buildStates(entry, { windowStatus: value }).some((s) =>
+        s.device_feature_external_id.endsWith(':window-contact'),
+      ),
+      false,
+    );
+  }
+});
+
+test('the shared window field is mapped consistently across models and gateways', () => {
+  const devices = [
+    ...['EV30', 'ECTRL', 'ESTAT', 'RSS-ECTRL'].map((model) =>
+      axencoThermostat({ model, state: { windowStatus: false } }),
+    ),
+    ...[0, 1].map((deviceType) =>
+      axencoThermostat({ model: 'EWS', state: { deviceType, windowStatus: false } }),
+    ),
+    ...['NTD', 'ETRV', 'UFH'].map((model) =>
+      axencoSubDevice({ model, state: { windowStatus: false } }),
+    ),
+  ];
+  for (const raw of devices) {
+    const entry = describeDevice(fakeGladys, raw);
+    const contact = entry.gladysDevice.features.find((f) =>
+      f.external_id.endsWith(':window-contact'),
+    );
+    assert.ok(contact, raw.model);
+    assert.equal(contact.read_only, true);
+    assert.equal(
+      buildStates(entry, { windowStatus: false }).find(
+        (s) => s.device_feature_external_id === contact.external_id,
+      ).state,
+      1,
+    );
+    assert.equal(
+      buildStates(entry, { windowStatus: true }).find(
+        (s) => s.device_feature_external_id === contact.external_id,
+      ).state,
+      0,
+    );
+  }
 });
 
 test('EWS setpoints that were not declared are not published', () => {

@@ -81,11 +81,15 @@ native support requires real hardware/gateway validation.
   to Axenco codes. Legacy Auto and Boost remain. Gladys 5.2's virtual thermostat
   does not accept a pilot-wire mode as its actuator. Legacy preset switches
   ignore OFF and must not be used as binary heating actuators.
-- The legacy window feature retains its values. Verify raw `windowStatus` on
-  opening/closing before selecting its polarity in the integration settings.
-  The default is **Not verified (disabled)**. Scan and update the device to
-  create **Contact fenêtre pour thermostat**, then select that feature in
-  the thermostat. It reports `0` open / `1` closed, as Gladys expects.
+- Supported devices automatically expose **Contact fenêtre pour thermostat**
+  when they report a boolean `windowStatus` (or numeric `0` / `1`): Axenco `false` means closed and `true` means an
+  opening is detected. The contact translates these to Gladys `1` closed /
+  `0` open. No polarity setting is needed. Scan and update the device, then
+  select this contact in the thermostat to suspend heating during a detection.
+  The legacy window feature keeps its identifier and values for existing
+  scenes. Devices that do not report this field expose no window contact.
+  This sensor mapping is independent of native thermostat command support,
+  which remains model-specific.
 
 ## Widget, scenes and status
 

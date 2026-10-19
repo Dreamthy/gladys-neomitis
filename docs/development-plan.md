@@ -13,7 +13,7 @@ Les détails d'utilisation sont dans le [guide de migration](upgrade.fr.md).
 - [x] Empêcher la consigne de repli écrite après Arrêt de rallumer l'EV30 ; mémoriser l'intention d'arrêt dans le volume persistant.
 - [x] Regrouper reprise et nouvelle consigne ; publier les consignes natives confirmées par le matériel.
 - [x] Ajouter un véritable interrupteur Marche/Arrêt pour EWS relais et traduire les six ordres standard du fil pilote EWS.
-- [x] Ajouter un contact fenêtre compatible avec le thermostat, activable après vérification explicite de sa polarité ; conserver le capteur historique.
+- [x] Ajouter automatiquement le contact fenêtre compatible avec le thermostat aux appareils qui remontent windowStatus (false = fermé, true = ouverture détectée), sans réglage de correspondance ; conserver le capteur historique.
 - [x] Valider les fonctionnalités, les modes, les valeurs binaires, les températures et les bornes ; ne publier que les fonctionnalités déclarées et créées.
 - [x] Ordonner les commandes par appareil, limiter leur attente, borner le temps des requêtes d'écriture et annuler les actions différées lors de la suppression ou de l'arrêt.
 - [x] Contrôler les commandes après leur envoi, reconnaître les codes Auto équivalents et éviter les faux échecs lorsqu'une nouvelle commande remplace la précédente.
@@ -30,7 +30,7 @@ Ces points ne peuvent pas être validés par les tests logiciels seuls :
 
 - [ ] Tester sur un EV30 réel la séquence Arrêt → consigne de repli → reprise et les retours de consigne dans une zone gérée par Gladys.
 - [ ] Mesurer les limites de dérogation avant d'autoriser des températures inférieures au minimum annoncé par l'appareil. Si ce minimum vaut 16 °C, le développement ne prétend pas fournir une consigne Hors gel numérique à 7 °C.
-- [ ] Vérifier `windowStatus` pendant une ouverture et une fermeture avant d'activer le nouveau contact fenêtre.
+- [ ] Vérifier la suspension et la reprise du thermostat Gladys lors d'une détection d'ouverture.
 - [ ] Vérifier les commandes du relais EWS sur le matériel, puis valider les autres modèles et passerelles avant d'y étendre le couple natif EV30.
 - [ ] Construire et tester l'image Docker, puis publier et déployer la version suivant le circuit de release.
 
