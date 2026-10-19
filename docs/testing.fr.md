@@ -6,6 +6,10 @@ La branche `test/gladys-5.2-thermostat` produit cette image de test :
 ghcr.io/dreamthy/gladys-neomitis:test-gladys-5.2-thermostat
 ```
 
+Chaque construction publie aussi une référence suffixée par l'identifiant du
+commit. Utiliser cette référence fournie dans le résumé du workflow pour
+charger une correction sans réutiliser une ancienne image en cache.
+
 Le workflow **Build and publish image** la construit pour `linux/amd64` et
 `linux/arm64`. Attendre la réussite de ce workflow et de **CI** avant de
 l'installer. Aucun tag de version officielle ni `latest` n'est mis à jour.

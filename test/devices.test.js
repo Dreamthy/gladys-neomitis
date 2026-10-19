@@ -60,6 +60,24 @@ test('selectors stay unique across devices sharing the same feature names', () =
   assert.equal(new Set(selectors).size, selectors.length);
 });
 
+test('discovery option labels follow the host API string contract', () => {
+  const devices = [
+    axencoThermostat(),
+    axencoThermostat({ model: 'EWS', state: { deviceType: 0, targetMode: 1 } }),
+    axencoThermostat({ model: 'EWS', state: { deviceType: 1, targetMode: 1 } }),
+  ];
+  for (const device of devices) {
+    for (const feature of describe_(device).gladysDevice.features) {
+      for (const option of feature.supported_options || []) {
+        const location = `${device.model}/${feature.name}/${option.value}`;
+        assert.equal(typeof option.label, 'string', `${location}: label must be a string`);
+        assert.ok(option.label.trim().length > 0, `${location}: label cannot be empty`);
+        assert.ok(Number.isFinite(option.value), `${location}: value must be numeric`);
+      }
+    }
+  }
+});
+
 test('a thermostat exposes temperatures, the mode and the selectable presets', () => {
   // Auto is an ordinary targetMode value (0), so it is a switch like the
   // others and exclusive with them for free. Dérogation (8) is not: it is a

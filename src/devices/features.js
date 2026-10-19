@@ -209,8 +209,8 @@ export function buildFeatures({ ids, profile, presetKeys, state, model, windowOp
       1,
       {
         supported_options: [
-          { value: 0, label: { en: 'Off', fr: 'Arrêt' } },
-          { value: 1, label: { en: 'Heating', fr: 'Chauffage' } },
+          { value: 0, label: 'Arrêt' },
+          { value: 1, label: 'Chauffage' },
         ],
       },
     );

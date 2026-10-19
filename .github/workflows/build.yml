@@ -100,6 +100,12 @@ jobs:
             version="${GITHUB_REF_NAME#v}"
             tags="${image}:${version},${image}:latest"
           fi
+          # Keep the branch alias, and give each test commit its own image
+          # reference so Gladys can pull a correction without reusing a cached tag.
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_TYPE" = "branch" ]; then
+            version="${version}-${GITHUB_SHA:0:12}"
+            tags="${tags},${image}:${version}"
+          fi
           echo "image_ref=${image}:${version}" >> "$GITHUB_OUTPUT"
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
 
