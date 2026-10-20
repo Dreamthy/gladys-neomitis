@@ -121,7 +121,9 @@ commune au pilotage direct et au thermostat Gladys.
 Les anciens interrupteurs de modes restent disponibles avec les mêmes ids et
 le même comportement : leur extinction ne transmet pas un ordre d'arrêt.
 Les options par appareil sont déclarées avec `supported_options`. Le widget
-Neomitis propose aussi un formulaire de sélection des modes Axenco.
+Neomitis propose les températures en direct et jusqu'à quatre commandes :
+Arrêter/Reprendre, Auto MyNeomitis, Mode et Consigne. Les détails de connexion
+sont facultatifs ; les anomalies et l'état de fenêtre restent visibles.
 Voir le [guide de migration et de configuration du thermostat](upgrade.fr.md).
 
 ## Utilisation dans les scènes

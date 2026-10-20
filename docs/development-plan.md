@@ -25,6 +25,8 @@ Les détails d'utilisation sont dans le [guide de migration](upgrade.fr.md).
 - [x] Ajouter un sélecteur Mode Axenco sur les appareils à plusieurs modes, sans imposer un thermostat Gladys ; conserver les anciens interrupteurs déjà créés et utiliser le sélecteur pour les nouveaux appareils.
 - [x] Ne plus créer de texte de mode sur les appareils à sélecteur ni de capteur fenêtre historique ; préserver les fonctionnalités existantes et afficher les détails du mode dans le widget.
 
+- [x] Simplifier le widget : températures en direct, fenêtre, quatre commandes selon le modèle, formulaires préremplis et détails de connexion facultatifs.
+
 ## Vérifications matérielles et publication restantes
 
 Ces points ne peuvent pas être validés par les tests logiciels seuls :

@@ -163,13 +163,37 @@ recréées après leur retrait. Ne pas supprimer l'appareil pour cela.
 
 ## Widget, scènes et diagnostics
 
-Le widget **Radiateur Neomitis** affiche les dernières températures disponibles,
-le mode Axenco, l'accès cloud, le canal temps réel et l'âge de la dernière
-lecture REST. Ses formulaires permettent une commande directe de mode ou une
-dérogation en **°C**, y compris si les valeurs affichées sont converties en °F.
-Ces commandes directes conservent le comportement historique : une dérogation
-peut réveiller un appareil en veille. Utiliser le widget thermostat natif pour
-les zones dont Gladys gère le planning.
+Le widget **Radiateur Neomitis** utilise deux tuiles liées aux fonctionnalités
+réelles : température de la pièce et consigne. Elles suivent les états publiés
+en direct, avec les unités de l'utilisateur. Le mode affiche notamment Auto
+Confort/Éco ; le contact fenêtre indique fermé, ouverture détectée ou état
+inconnu lorsqu'une lecture n'est plus valide. Le widget n'estime pas l'activité
+de la résistance à partir de la différence entre température et consigne.
+
+Quatre commandes sont proposées selon les capacités réellement créées :
+
+- **Arrêter / Reprendre** : mode physique EV30 ou relais EWS. Pour les autres
+  modèles disposant de Veille et Confort, **Reprendre en Confort** indique
+  explicitement le mode appliqué ; le widget ne prétend pas restaurer un mode
+  précédent qu'il n'a pas mémorisé. UFH ne reçoit pas de faux bouton Arrêt.
+- **Auto MyNeomitis** : reprend le programme fabricant si le modèle le permet,
+  sans agir sur le planning Gladys.
+- **Mode** : ouvre les modes disponibles, avec le mode observé présélectionné
+  lorsqu'il est sélectionnable.
+- **Consigne** : applique une dérogation en **°C**, avec les bornes matérielles
+  et la valeur actuelle préremplie si elle est valide. Elle peut réveiller un
+  radiateur en veille ; un planning Gladys actif peut ensuite reprendre la main.
+
+Par défaut, les détails cloud sont masqués lorsque tout fonctionne. Les pertes
+cloud, temps réel ou de connexion du radiateur restent visibles. Activer
+**Afficher les détails de connexion** dans les réglages du widget pour voir
+aussi les connexions saines et l'âge de la dernière lecture cloud. Les
+instances déjà ajoutées gardent leur appareil sélectionné ; ce réglage est
+facultatif et désactivé par défaut.
+
+Utiliser le widget thermostat natif pour gérer le planning d'une zone. Les
+boutons Neomitis pilotent directement le matériel, sans arrêter ce planning.
+Un accusé de réception n'est pas une confirmation physique.
 
 Actions de scène : **Choisir le mode Axenco**, **Appliquer une dérogation**,
 **Reprendre le programme MyNeomitis**, **Mettre en marche / arrêter l’appareil**.

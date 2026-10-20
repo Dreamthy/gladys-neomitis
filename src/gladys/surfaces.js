@@ -1,7 +1,6 @@
 import { FEATURE, presetFeatureKey } from '../devices/features.js';
-import { PRESETS } from '../axenco/const.js';
 import { STANDARD } from '../devices/standard.js';
-import { modeLabel } from '../devices/index.js';
+import { registerHeaterWidget } from './heater-widget.js';
 
 /** All commands enter the same validated, per-device queue as device controls. */
 export function registerSurfaces(gladys, { findEntry, command, status }) {
@@ -49,105 +48,5 @@ export function registerSurfaces(gladys, { findEntry, command, status }) {
     return { accepted: true };
   });
 
-  gladys.onWidgetGet('heater', ({ settings, units }) => {
-    const entry = findEntry(settings.device);
-    const health = status();
-    const features = gladys.devices.find((d) => d.external_id === entry.ids.device).features;
-    const value = (key) =>
-      features.find((f) => f.external_id === entry.ids.feature(key))?.last_value;
-    const mode = modeLabel(entry);
-    const components = [
-      { type: 'text', variant: 'heading', text: entry.gladysDevice.name.slice(0, 40) },
-    ];
-    const temperature = (key, label) => {
-      const reading = value(key);
-      if (typeof reading !== 'number' || !Number.isFinite(reading)) return;
-      components.push({
-        type: 'value',
-        label,
-        value: units === 'us' ? (reading * 9) / 5 + 32 : reading,
-        unit: units === 'us' ? '°F' : '°C',
-      });
-    };
-    temperature(FEATURE.CURRENT_TEMP, { en: 'Room', fr: 'Pièce' });
-    temperature(FEATURE.TARGET_TEMP, { en: 'Setpoint', fr: 'Consigne' });
-    components.push({
-      type: 'status',
-      items: [
-        { label: { en: 'Mode', fr: 'Mode' }, value: mode || '—' },
-        {
-          label: { en: 'Cloud', fr: 'Cloud' },
-          value: health.restReachable
-            ? { en: 'Connected', fr: 'Connecté' }
-            : { en: 'Unavailable', fr: 'Indisponible' },
-          color: health.restReachable ? 'success' : 'danger',
-        },
-        {
-          label: { en: 'Real time', fr: 'Temps réel' },
-          value: health.pushConnected
-            ? { en: 'Connected', fr: 'Connecté' }
-            : { en: 'Periodic refresh', fr: 'Relecture périodique' },
-          color: health.pushConnected ? 'success' : 'warning',
-        },
-        ...(health.lastSuccessAt
-          ? [
-              {
-                label: { en: 'Last cloud read', fr: 'Dernière lecture cloud' },
-                value: `${Math.max(0, Math.floor((Date.now() - Date.parse(health.lastSuccessAt)) / 60000))} min`,
-              },
-            ]
-          : []),
-      ],
-    });
-    if (entry.selectableKeys.length)
-      components.push({
-        type: 'button',
-        label: { en: 'Axenco mode', fr: 'Mode Axenco' },
-        action: {
-          key: 'mode',
-          fields: [
-            {
-              key: 'mode',
-              type: 'select',
-              required: true,
-              label: { en: 'Mode', fr: 'Mode' },
-              options: entry.selectableKeys.map((key) => ({
-                value: key,
-                label: { en: PRESETS[key].label, fr: PRESETS[key].label },
-              })),
-            },
-          ],
-        },
-      });
-    const target = features.find((f) => f.external_id === entry.ids.feature(FEATURE.TARGET_TEMP));
-    if (target)
-      components.push({
-        type: 'button',
-        label: { en: 'Override (°C)', fr: 'Dérogation (°C)' },
-        action: {
-          key: 'temperature',
-          fields: [
-            {
-              key: 'temperature',
-              type: 'number',
-              required: true,
-              label: { en: 'Temperature (°C)', fr: 'Température (°C)' },
-              min: target.min,
-              max: target.max,
-              ...(Number.isFinite(target.last_value) ? { default: target.last_value } : {}),
-            },
-          ],
-        },
-      });
-    return { ttl_seconds: 60, components };
-  });
-  gladys.onWidgetAction('heater', async (key, params, { settings, values = {} }) => {
-    if (key === 'mode') await chooseMode(settings.device, values.mode);
-    else if (key === 'temperature') await setTemperature(settings.device, values.temperature);
-    else throw new Error('Unknown widget action');
-    return {
-      en: 'Command sent; hardware confirmation follows.',
-      fr: 'Commande envoyée ; confirmation matérielle à suivre.',
-    };
-  });
+  registerHeaterWidget(gladys, { findEntry, command, status, chooseMode, setTemperature });
 }

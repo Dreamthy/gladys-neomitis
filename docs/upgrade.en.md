@@ -124,11 +124,34 @@ delete the device to remove individual duplicate features.
 
 ## Widget, scenes and status
 
-The Neomitis heater widget shows reported temperatures, Axenco mode, cloud
-status, real-time status and the age of the last REST read. Its forms send
-direct modes and temperature overrides in **°C**, even if displayed readings
-use Fahrenheit. Direct overrides keep their legacy behaviour and can wake a
-standby heater. Use Gladys's native thermostat widget for a scheduled zone.
+The Neomitis heater widget uses live device-bound tiles for room temperature
+and setpoint, rendered in the user's units. Its mode shows Auto Comfort/Eco.
+Window status distinguishes closed, opening detected and an unknown reading.
+It does not infer actual heater power from temperature versus target.
+
+Up to four controls are offered according to the device's created features:
+
+- **Stop / Resume** uses the physical EV30 mode or EWS relay. Other models with
+  Standby and Comfort offer **Resume Comfort**, explicitly selecting Comfort
+  rather than claiming to restore an unrecorded previous mode. UFH has no
+  invented OFF control.
+- **MyNeomitis Auto** resumes the manufacturer programme when supported,
+  independently of the Gladys schedule.
+- **Mode** opens the available modes with the observed mode preselected when
+  selectable.
+- **Setpoint** applies an override in **°C**, bounded by the device and
+  prefilled with a valid current target. It can wake a standby heater; an
+  active Gladys schedule may subsequently take over again.
+
+Healthy connection details are hidden by default. Cloud, push and device
+connection failures remain visible. Enable **Show connection details** in the
+widget settings to also show healthy connections and the last cloud-read age.
+Existing widget instances keep their selected device; the new setting is
+optional and defaults to false.
+
+Use Gladys's native thermostat widget to manage a zone's schedule. Neomitis
+buttons control hardware directly without stopping that schedule. A command
+acknowledgement is not physical confirmation.
 
 Scene actions choose an Axenco mode, apply a temperature override, resume the
 MyNeomitis programme or start/stop the device control (EV30 or relay EWS).

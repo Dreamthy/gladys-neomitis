@@ -382,6 +382,15 @@
             "fr": "Appareil"
           },
           "required": true
+        },
+        {
+          "key": "show_diagnostics",
+          "type": "boolean",
+          "label": {
+            "en": "Show connection details",
+            "fr": "Afficher les détails de connexion"
+          },
+          "default": false
         }
       ],
       "action_timeout_seconds": 30

@@ -517,3 +517,51 @@ test('legacy window polarity and mode references survive discovery updates, and 
       .some((s) => [id('mode'), id('open-window')].includes(s.device_feature_external_id)),
   );
 });
+
+test('widget controls route through the real command queue and preserve physical standby', async (t) => {
+  const { app, gladys, client, description, raw, listeners } = await runtime(t, {
+    state: { windowStatus: false },
+  });
+  const act = (key, values = {}) =>
+    gladys.fake.widgetAction(
+      'heater',
+      key,
+      {},
+      { settings: { device: description.ids.device }, values },
+    );
+  assert.equal((await act('stop')).success, true);
+  await app.command(description.ids.device, STANDARD.TARGET, 7);
+  assert.deepEqual(client.calls, [{ name: 'setDeviceMode', args: [raw._id, 4] }]);
+  listeners.get(raw._id)({ targetMode: 4 });
+  await new Promise((resolve) => setImmediate(resolve));
+  const widget = await gladys.fake.widgetGet('heater', {
+    settings: { device: description.ids.device },
+    units: 'metric',
+  });
+  assert.equal(
+    widget.data.content.components.find((c) => c.type === 'button').label.fr,
+    'Reprendre',
+  );
+  assert.equal((await act('resume')).success, true);
+  assert.equal((await act('temperature', { temperature: 21 })).success, true);
+  assert.deepEqual(client.calls.at(-1), { name: 'setDeviceTemperature', args: [raw._id, 21] });
+  assert.equal((await act('auto')).success, true);
+  assert.deepEqual(client.calls.at(-1), { name: 'setDeviceMode', args: [raw._id, 0] });
+  assert.equal(client.calls.length, 3);
+});
+
+test('widget stop failures are reported as failures instead of successful hardware stops', async (t) => {
+  const { gladys, client, description } = await runtime(t);
+  client.setDeviceMode = async () => {
+    throw new Error('Axenco unavailable');
+  };
+  const reply = await gladys.fake.widgetAction(
+    'heater',
+    'stop',
+    {},
+    { settings: { device: description.ids.device } },
+  );
+  assert.equal(reply.success, false);
+  assert.equal(gladys.fake.sceneEvents.at(-1).key, 'command_failed');
+  assert.match(gladys.fake.sceneEvents.at(-1).data.reason, /Axenco unavailable/);
+});
