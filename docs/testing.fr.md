@@ -51,11 +51,11 @@ l'installer. Aucun tag de version officielle ni `latest` n'est mis à jour.
   ni ancien capteur fenêtre. Sur un appareil existant, les fonctionnalités
   marquées **compatibilité** doivent conserver leurs identifiants et valeurs.
 - Vérifier les températures en direct, les détails Auto Confort/Éco, la fenêtre
-  et les codes inconnus dans le widget. Tester ses boutons Arrêter/Reprendre,
-  Auto MyNeomitis, Mode et Consigne selon les capacités du modèle.
+  et les codes inconnus dans le widget. Tester uniquement les boutons Mode
+  et Consigne selon le modèle, puis choisir Auto ou Veille dans le formulaire.
 - Activer **Afficher les détails de connexion** dans les réglages du widget et
   vérifier les états cloud ; les anomalies doivent rester visibles sans cette
-  option. Le bouton Auto ne doit pas être proposé sur ETRV.
+  option. Le mode Auto ne doit pas être proposé sur ETRV.
 - Sélectionner **Fenêtre ouverte** (sans « compatibilité ») si cette
   fonctionnalité est proposée, puis vérifier la suspension et la reprise du
   chauffage lors d'une détection d'ouverture. La correspondance est automatique.

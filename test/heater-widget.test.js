@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
 import { validateWidgetContent } from '@gladysassistant/integration-sdk';
 import { describeDevice, FEATURE } from '../src/devices/index.js';
-import { STANDARD } from '../src/devices/standard.js';
 import { registerSurfaces } from '../src/gladys/surfaces.js';
 import { axencoThermostat, axencoSubDevice } from './helpers/fakes.js';
 
@@ -45,15 +44,15 @@ async function widget(raw = axencoThermostat(), { health = {}, filter = () => tr
 const buttons = (components) => components.filter((c) => c.type === 'button');
 const rows = (components) => components.find((c) => c.type === 'status').items;
 
-test('EV30 widget uses exactly eight components with live temperatures and four useful commands', async () => {
+test('EV30 widget keeps live temperatures and only Mode and Setpoint buttons', async () => {
   const { get, entry } = await widget(
     axencoThermostat({ state: { targetMode: 60, windowStatus: false } }),
   );
   const content = await get();
-  assert.equal(content.length, 8);
+  assert.equal(content.length, 6);
   assert.deepEqual(
     buttons(content).map((b) => b.action.key),
-    ['stop', 'auto', 'mode', 'temperature'],
+    ['mode', 'temperature'],
   );
   const tiles = content.filter((c) => c.type === 'value');
   assert.deepEqual(
@@ -127,55 +126,70 @@ test('connection details are optional and anomalies stay visible in compact mode
   );
 });
 
-test('stop/resume buttons are explicit commands based on the observed mode', async () => {
+test('Auto and standby remain available through Mode while shortcut actions are removed', async () => {
   const { get, act, entry, commands } = await widget(
     axencoThermostat({ state: { targetMode: 4 } }),
   );
-  assert.equal(buttons(await get())[0].label.fr, 'Reprendre');
-  assert.equal((await act('resume')).success, true);
-  assert.deepEqual(commands[0], [entry.ids.device, STANDARD.MODE, 1]);
-  entry.observedState.targetMode = 8;
-  assert.equal(buttons(await get())[0].label.fr, 'Arrêter');
-  assert.equal((await act('stop')).success, true);
-  assert.deepEqual(commands[1], [entry.ids.device, STANDARD.MODE, 0]);
-  assert.equal((await act('auto')).success, true);
-  assert.deepEqual(commands[2], [entry.ids.device, FEATURE.MODE_SELECT, 'auto']);
+  const mode = buttons(await get()).find((button) => button.action.key === 'mode');
+  assert.equal(mode.action.fields[0].default, 'standby');
+  const options = mode.action.fields[0].options.map((option) => option.value);
+  assert.ok(options.includes('auto'));
+  assert.ok(options.includes('standby'));
+  assert.equal((await act('mode', { mode: 'auto' })).success, true);
+  assert.equal((await act('mode', { mode: 'standby' })).success, true);
+  assert.deepEqual(commands, [
+    [entry.ids.device, FEATURE.MODE_SELECT, 'auto'],
+    [entry.ids.device, FEATURE.MODE_SELECT, 'standby'],
+  ]);
+  for (const removed of ['auto', 'stop', 'resume'])
+    assert.equal((await act(removed)).success, false);
+  assert.equal(commands.length, 2);
 });
 
-test('power commands and buttons match relay, pilot-wire, thermostat and UFH capabilities', async () => {
-  for (const [raw, keys, method, value] of [
+test('Mode and Setpoint buttons match relay, pilot-wire, thermostat and UFH capabilities', async () => {
+  for (const [raw, keys, selection, feature, value] of [
     [
       axencoThermostat({ model: 'EWS', state: { deviceType: 0, targetMode: 2 } }),
-      ['resume', 'auto', 'mode'],
-      STANDARD.RELAY,
-      1,
+      ['mode'],
+      'on',
+      FEATURE.MODE_SELECT,
+      'on',
     ],
     [
       axencoThermostat({ model: 'EWS', state: { deviceType: 1, targetMode: 4 } }),
-      ['resume', 'auto', 'mode'],
+      ['mode'],
+      'comfort',
       FEATURE.MODE_SELECT,
       'comfort',
     ],
     [
       axencoSubDevice({ state: { targetMode: 4 } }),
-      ['resume', 'mode', 'temperature'],
+      ['mode', 'temperature'],
+      'comfort',
       FEATURE.MODE_SELECT,
       'comfort',
     ],
-    [axencoSubDevice({ model: 'UFH', state: { changeOverUser: 0 } }), ['mode'], null, null],
+    [
+      axencoSubDevice({ model: 'UFH', state: { changeOverUser: 0 } }),
+      ['mode'],
+      'cooling',
+      FEATURE.COOLING,
+      1,
+    ],
   ]) {
     const { get, act, commands, entry } = await widget(raw);
+    const content = await get();
     assert.deepEqual(
-      buttons(await get()).map((b) => b.action.key),
+      buttons(content).map((b) => b.action.key),
       keys,
       raw.model,
     );
-    const ack = await act('resume');
-    assert.equal(ack.success, Boolean(method));
-    assert.deepEqual(commands, method ? [[entry.ids.device, method, value]] : []);
+    assert.equal((await act('mode', { mode: selection })).success, true);
+    assert.deepEqual(commands, [[entry.ids.device, feature, value]]);
     if (raw.model === 'ETRV') {
-      assert.equal(buttons(await get())[0].label.fr, 'Reprendre en Confort');
-      assert.equal((await act('auto')).success, false);
+      const options = buttons(content)[0].action.fields[0].options.map((option) => option.value);
+      assert.ok(!options.includes('auto'));
+      assert.equal((await act('mode', { mode: 'auto' })).success, false);
     }
   }
 });

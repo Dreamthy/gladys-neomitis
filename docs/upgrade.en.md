@@ -129,19 +129,18 @@ and setpoint, rendered in the user's units. Its mode shows Auto Comfort/Eco.
 Window status distinguishes closed, opening detected and an unknown reading.
 It does not infer actual heater power from temperature versus target.
 
-Up to four controls are offered according to the device's created features:
+Up to two controls are offered according to the device's created features:
 
-- **Stop / Resume** uses the physical EV30 mode or EWS relay. Other models with
-  Standby and Comfort offer **Resume Comfort**, explicitly selecting Comfort
-  rather than claiming to restore an unrecorded previous mode. UFH has no
-  invented OFF control.
-- **MyNeomitis Auto** resumes the manufacturer programme when supported,
-  independently of the Gladys schedule.
-- **Mode** opens the available modes with the observed mode preselected when
-  selectable.
+- **Mode** opens available modes with the observed mode preselected when
+  selectable. Choose **Auto** for the manufacturer programme, **Standby** to
+  stop the heater, or an active mode to resume. Relay EWS exposes ON/OFF;
+  UFH exposes Heating/Cooling.
 - **Setpoint** applies an override in **°C**, bounded by the device and
   prefilled with a valid current target. It can wake a standby heater; an
   active Gladys schedule may subsequently take over again.
+
+The MyNeomitis Auto and Stop/Resume shortcuts were removed from the widget.
+Standard device features and scene actions are retained.
 
 Healthy connection details are hidden by default. Cloud, push and device
 connection failures remain visible. Enable **Show connection details** in the
@@ -161,7 +160,9 @@ request, not the physical result. Unsupported per-model modes are rejected.
 
 **Command not confirmed** exposes the device, feature and reason for a
 notification scene. Main devices are re-read 30 seconds after commands. Auto
-codes 0/60/61 compare semantically. Unverified gateway responses are not used
+codes 0/60/61 compare semantically. “Not confirmed” means the expected state
+was not observed at that read, without assuming the command was permanently
+ignored. Repeating an order retains its pending expected values. Unverified gateway responses are not used
 to claim confirmation of sub-devices.
 
 Push failures mark the cloud transport degraded while REST refresh continues.

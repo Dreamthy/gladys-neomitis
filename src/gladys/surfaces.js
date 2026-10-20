@@ -48,5 +48,5 @@ export function registerSurfaces(gladys, { findEntry, command, status }) {
     return { accepted: true };
   });
 
-  registerHeaterWidget(gladys, { findEntry, command, status, chooseMode, setTemperature });
+  registerHeaterWidget(gladys, { findEntry, status, chooseMode, setTemperature });
 }

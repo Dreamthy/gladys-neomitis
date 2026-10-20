@@ -4,10 +4,7 @@ import { PRESETS, presetKeyFromCode } from '../axenco/const.js';
 import { STANDARD } from '../devices/standard.js';
 
 /** Compact direct controls; the Gladys thermostat remains the scheduling UI. */
-export function registerHeaterWidget(
-  gladys,
-  { findEntry, command, status, chooseMode, setTemperature },
-) {
+export function registerHeaterWidget(gladys, { findEntry, status, chooseMode, setTemperature }) {
   const featuresFor = (entry) =>
     gladys.devices.find((device) => device.external_id === entry.ids.device)?.features || [];
   const featureFor = (entry, features, key) =>
@@ -23,19 +20,6 @@ export function registerHeaterWidget(
         ? selector.supported_options?.some((option) => option.value === key)
         : Boolean(writableFeatureFor(entry, features, presetFeatureKey(key)));
     });
-  const powerFor = (entry, features, modes) => {
-    if (entry.model === 'EV30' && writableFeatureFor(entry, features, STANDARD.MODE))
-      return STANDARD.MODE;
-    if (
-      entry.model === 'EWS' &&
-      entry.state.deviceType === 0 &&
-      writableFeatureFor(entry, features, STANDARD.RELAY)
-    )
-      return STANDARD.RELAY;
-    if (modes.includes('standby') && modes.includes('comfort')) return 'preset';
-    return null;
-  };
-
   gladys.onWidgetGet('heater', async ({ settings }) => {
     // Published states do not refresh the SDK's device snapshot. Read the
     // current Gladys values for form defaults, without querying Axenco again.
@@ -45,7 +29,6 @@ export function registerHeaterWidget(
     const observed = entry.observedState || entry.state;
     const activeMode = presetKeyFromCode(entry.presetKeys, observed[entry.profile.presetStateKey]);
     const modes = modesFor(entry, features);
-    const power = powerFor(entry, features, modes);
     const stopped = ['standby', 'off'].includes(activeMode);
     const health = status();
     const diagnostics = settings.show_diagnostics === true;
@@ -117,25 +100,6 @@ export function registerHeaterWidget(
       });
     }
     components.push({ type: 'status', items });
-    if (power)
-      components.push({
-        type: 'button',
-        label: stopped
-          ? power === 'preset'
-            ? { en: 'Resume Comfort', fr: 'Reprendre en Confort' }
-            : { en: 'Resume', fr: 'Reprendre' }
-          : { en: 'Stop', fr: 'Arrêter' },
-        icon: 'power',
-        style: stopped ? 'primary' : 'danger',
-        action: { key: stopped ? 'resume' : 'stop' },
-      });
-    if (modes.includes('auto'))
-      components.push({
-        type: 'button',
-        label: { en: 'MyNeomitis Auto', fr: 'Auto MyNeomitis' },
-        icon: 'calendar',
-        action: { key: 'auto' },
-      });
     if (modes.length)
       components.push({
         type: 'button',
@@ -197,16 +161,7 @@ export function registerHeaterWidget(
   gladys.onWidgetAction('heater', async (key, params, { settings, values = {} }) => {
     if (key === 'mode') await chooseMode(settings.device, values.mode);
     else if (key === 'temperature') await setTemperature(settings.device, values.temperature);
-    else if (key === 'auto') await chooseMode(settings.device, 'auto');
-    else if (key === 'stop' || key === 'resume') {
-      const entry = findEntry(settings.device);
-      const features = featuresFor(entry);
-      const power = powerFor(entry, features, modesFor(entry, features));
-      if (!power) throw new Error('This device has no supported start/stop control');
-      const enabled = key === 'resume';
-      if (power === 'preset') await chooseMode(settings.device, enabled ? 'comfort' : 'standby');
-      else await command(settings.device, power, enabled ? 1 : 0);
-    } else throw new Error('Unknown widget action');
+    else throw new Error('Unknown widget action');
     return {
       en: 'Command sent; hardware confirmation follows.',
       fr: 'Commande envoyée ; confirmation matérielle à suivre.',

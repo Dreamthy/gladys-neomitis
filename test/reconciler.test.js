@@ -75,14 +75,14 @@ test('a command the device applied is confirmed, not warned about', async (t) =>
   assert.equal(published.length, 1);
 });
 
-test('a command the device ignored is reported, with both values', async (t) => {
+test('an unconfirmed command is reported without inferring why, with both values', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const { reconciler, logs } = harness({ freshState: { targetMode: 3 } });
 
   reconciler.schedule(mainEntry({ targetMode: 0 }), 'preset:auto', { targetMode: 0 });
   await fire(t);
 
-  assert.match(logs.warn[0], /did not apply it — targetMode: asked 0, got 3/);
+  assert.match(logs.warn[0], /command not confirmed after 1s — targetMode: asked 0, got 3/);
 });
 
 test('the real device state is published, not what we asked for', async (t) => {
@@ -170,4 +170,15 @@ test('cancelAll drops pending checks', async (t) => {
   await fire(t);
 
   assert.equal(published.length, 0);
+});
+
+test('repeating the same optimistic command retains the expected state for confirmation', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { reconciler, logs } = harness({ freshState: { targetMode: 3 } });
+  const entry = mainEntry({ targetMode: 4 });
+  reconciler.schedule(entry, 'axenco-mode', { targetMode: 4 });
+  reconciler.schedule(entry, 'axenco-mode', {});
+  await fire(t);
+  assert.equal(logs.warn.length, 1);
+  assert.match(logs.warn[0], /targetMode: asked 4, got 3/);
 });

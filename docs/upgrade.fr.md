@@ -170,19 +170,18 @@ Confort/Éco ; le contact fenêtre indique fermé, ouverture détectée ou état
 inconnu lorsqu'une lecture n'est plus valide. Le widget n'estime pas l'activité
 de la résistance à partir de la différence entre température et consigne.
 
-Quatre commandes sont proposées selon les capacités réellement créées :
+Deux commandes sont proposées selon les capacités réellement créées :
 
-- **Arrêter / Reprendre** : mode physique EV30 ou relais EWS. Pour les autres
-  modèles disposant de Veille et Confort, **Reprendre en Confort** indique
-  explicitement le mode appliqué ; le widget ne prétend pas restaurer un mode
-  précédent qu'il n'a pas mémorisé. UFH ne reçoit pas de faux bouton Arrêt.
-- **Auto MyNeomitis** : reprend le programme fabricant si le modèle le permet,
-  sans agir sur le planning Gladys.
 - **Mode** : ouvre les modes disponibles, avec le mode observé présélectionné
-  lorsqu'il est sélectionnable.
+  lorsqu'il est sélectionnable. Choisir **Auto** pour suivre le programme
+  MyNeomitis, **Veille** pour arrêter le radiateur, ou un mode actif pour
+  reprendre. Un relais EWS propose Marche/Arrêt ; UFH Chauffage/Rafraîchissement.
 - **Consigne** : applique une dérogation en **°C**, avec les bornes matérielles
   et la valeur actuelle préremplie si elle est valide. Elle peut réveiller un
   radiateur en veille ; un planning Gladys actif peut ensuite reprendre la main.
+
+Les raccourcis Auto MyNeomitis et Arrêter/Reprendre ont été retirés du widget.
+Les contrôles standard de l'appareil et les actions de scène sont conservés.
 
 Par défaut, les détails cloud sont masqués lorsque tout fonctionne. Les pertes
 cloud, temps réel ou de connexion du radiateur restent visibles. Activer
@@ -206,7 +205,10 @@ physique se fait ensuite.
 
 Le déclencheur **Commande non confirmée** fournit l'appareil, la fonctionnalité
 et le motif d'échec. Il peut lancer une notification. Le contrôle après
-commande intervient à 30 secondes sur les appareils principaux, et compare
+commande intervient à 30 secondes sur les appareils principaux. « Non confirmé »
+signifie que l'état attendu n'est pas retrouvé à ce moment-là ; cela ne prouve
+pas que l'ordre a été définitivement ignoré. Une répétition du même ordre
+conserve les valeurs à vérifier. Le contrôle compare
 les codes Auto `0`, `60` et `61` selon leur sens. Il n'est pas disponible sur
 les sous-appareils dont la réponse de passerelle n'a pas été vérifiée.
 

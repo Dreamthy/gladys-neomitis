@@ -118,8 +118,8 @@ selector and an EV30 **Mode du radiateur** with a target shared by direct
 controls and the native thermostat. Existing
 preset switches retain their ids and semantics: switching one OFF is not a
 hardware stop. Supported choices are declared through `supported_options`.
-The Neomitis widget shows live temperatures and up to four controls: Stop/Resume,
-MyNeomitis Auto, Mode and Setpoint. Connection details are optional; anomalies
+The Neomitis widget shows live temperatures and two controls: Mode and Setpoint.
+Auto and Standby remain available in the mode selection. Connection details are optional; anomalies
 and window status remain visible. Read the
 [migration and thermostat guide](upgrade.en.md) for configuration.
 

@@ -529,7 +529,7 @@ test('widget controls route through the real command queue and preserve physical
       {},
       { settings: { device: description.ids.device }, values },
     );
-  assert.equal((await act('stop')).success, true);
+  assert.equal((await act('mode', { mode: 'standby' })).success, true);
   await app.command(description.ids.device, STANDARD.TARGET, 7);
   assert.deepEqual(client.calls, [{ name: 'setDeviceMode', args: [raw._id, 4] }]);
   listeners.get(raw._id)({ targetMode: 4 });
@@ -538,28 +538,24 @@ test('widget controls route through the real command queue and preserve physical
     settings: { device: description.ids.device },
     units: 'metric',
   });
-  assert.equal(
-    widget.data.content.components.find((c) => c.type === 'button').label.fr,
-    'Reprendre',
-  );
-  assert.equal((await act('resume')).success, true);
+  assert.equal(widget.data.content.components.find((c) => c.type === 'button').label.fr, 'Mode');
   assert.equal((await act('temperature', { temperature: 21 })).success, true);
   assert.deepEqual(client.calls.at(-1), { name: 'setDeviceTemperature', args: [raw._id, 21] });
-  assert.equal((await act('auto')).success, true);
+  assert.equal((await act('mode', { mode: 'auto' })).success, true);
   assert.deepEqual(client.calls.at(-1), { name: 'setDeviceMode', args: [raw._id, 0] });
   assert.equal(client.calls.length, 3);
 });
 
-test('widget stop failures are reported as failures instead of successful hardware stops', async (t) => {
+test('widget mode failures are reported as failures instead of successful hardware stops', async (t) => {
   const { gladys, client, description } = await runtime(t);
   client.setDeviceMode = async () => {
     throw new Error('Axenco unavailable');
   };
   const reply = await gladys.fake.widgetAction(
     'heater',
-    'stop',
+    'mode',
     {},
-    { settings: { device: description.ids.device } },
+    { settings: { device: description.ids.device }, values: { mode: 'standby' } },
   );
   assert.equal(reply.success, false);
   assert.equal(gladys.fake.sceneEvents.at(-1).key, 'command_failed');

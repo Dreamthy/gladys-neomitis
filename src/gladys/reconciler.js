@@ -94,7 +94,10 @@ export function createReconciler({
       // two switches in a row would otherwise cancel the first check and we
       // would learn nothing about it.
       const timerKey = `${entry.axencoId}:${featureKey}`;
-      asked = { ...asked };
+      // A repeated order can match the optimistic state and therefore have
+      // an empty diff. Retain the outstanding expectation instead of silently
+      // replacing its confirmation with a check that watches no fields.
+      asked = { ...pending.get(timerKey), ...asked };
       // Several UI switches write the same Axenco targetMode. A later order
       // supersedes that field, rather than making the previous order a refusal.
       for (const [key, previous] of pending) {
@@ -133,7 +136,7 @@ export function createReconciler({
             });
             if (refused.length > 0) {
               logger.warn(
-                `${entry.model}/${featureKey}: Axenco answered 200 but the device did not apply it — ` +
+                `${entry.model}/${featureKey}: command not confirmed after ${delayMs / 1000}s — ` +
                   refused.map((key) => `${key}: asked ${asked[key]}, got ${fresh[key]}`).join(', '),
               );
               await onFailure(
