@@ -1,8 +1,16 @@
 import { PRESETS, presetKeyFromCode } from '../axenco/const.js';
-import { STANDARD, binary, nativeThermostat, validateTemperature } from '../devices/standard.js';
+import {
+  STANDARD,
+  nativeThermostat,
+  runningThermostatMode,
+  validateThermostatMode,
+  validateTemperature,
+} from '../devices/standard.js';
+import { writeMode, requireParents, requireRfid } from '../devices/index.js';
 
-/** Actual EV30 setpoint for the reported mode, rather than a stale saved override. */
-export function effectiveTarget(state) {
+/** Prefer the model's target field; main devices also report per-mode targets. */
+export function effectiveTarget(state, profile = {}) {
+  if (profile.subDevice) return state.targetTemp ?? state.overrideTemp;
   const key = { 1: 'comfTemp', 60: 'comfTemp', 2: 'ecoTemp', 61: 'ecoTemp', 3: 'antifTemp' }[
     state.targetMode
   ];
@@ -34,8 +42,8 @@ export function createThermostatControl({
         // A persisted intent can precede the cloud feedback, including at restart.
         pendingMode: stopped && !physicalStop ? PRESETS.standby.code : null,
         target: saved.stopped
-          ? (saved.target ?? effectiveTarget(observed))
-          : effectiveTarget(observed),
+          ? (saved.target ?? effectiveTarget(observed, entry.profile))
+          : effectiveTarget(observed, entry.profile),
         expected: null,
         timer: null,
         resumeRevision: 0,
@@ -69,8 +77,19 @@ export function createThermostatControl({
     c.expected = value;
     c.pendingMode = PRESETS.setpoint.code;
     try {
-      await client.setDeviceTemperature(entry.axencoId, value);
-      reconcile(entry, STANDARD.TARGET, { overrideTemp: value, targetMode: PRESETS.setpoint.code });
+      if (entry.profile.subDevice) {
+        const parents = requireParents(entry);
+        const rfid = requireRfid(entry);
+        // Home Assistant enters setpoint mode before writing a gateway target.
+        // Keep the two documented calls; do not invent an atomic sub-device payload.
+        await client.setSubDeviceTarget(parents, rfid, value);
+      } else {
+        await client.setDeviceTemperature(entry.axencoId, value);
+      }
+      reconcile(entry, STANDARD.TARGET, {
+        [entry.profile.targetTempKey]: value,
+        targetMode: PRESETS.setpoint.code,
+      });
     } catch (error) {
       c.expected = null;
       c.pendingMode = null;
@@ -82,11 +101,10 @@ export function createThermostatControl({
       nativeThermostat(entry) &&
       [STANDARD.MODE, STANDARD.TARGET, STANDARD.LEGACY_TARGET].includes(key),
     async command(entry, key, value, { resume: explicitResume = false } = {}) {
-      if (!nativeThermostat(entry))
-        throw new Error('Native thermostat control is verified on EV30 only');
+      if (!nativeThermostat(entry)) throw new Error('This model has no native thermostat control');
       if (![STANDARD.MODE, STANDARD.TARGET, STANDARD.LEGACY_TARGET].includes(key))
         throw new Error('Unknown thermostat control');
-      if (key === STANDARD.MODE) binary(value);
+      if (key === STANDARD.MODE) validateThermostatMode(entry, value);
       else validateTemperature(entry, STANDARD.TARGET, value);
       const c = control(entry);
       cancelResume(c);
@@ -101,13 +119,13 @@ export function createThermostatControl({
             storageError = error;
           }
           c.expected = null;
-          await client.setDeviceMode(entry.axencoId, PRESETS.standby.code);
+          await writeMode(client, entry, PRESETS.standby.code);
           reconcile(entry, STANDARD.MODE, { targetMode: PRESETS.standby.code });
           if (storageError) throw storageError;
         } else {
           await resume(entry, c);
-          // Gladys writes mode, THEN target: combine wake-up and setpoint into
-          // one captured Axenco payload instead of two easily dropped orders.
+          // Gladys writes mode, THEN target: wait briefly for that target so
+          // only one temperature sequence is sent (one call on main devices).
           const revision = c.resumeRevision;
           c.timer = setTimeout(() => {
             c.timer = null;
@@ -146,7 +164,7 @@ export function createThermostatControl({
       c.stopped = entry.state.targetMode === PRESETS.standby.code;
       // A manufacturer mode is an explicit user command too. It must release
       // a previous stop, or subsequent shared setpoints would remain parked.
-      const target = effectiveTarget(entry.state);
+      const target = effectiveTarget(entry.state, entry.profile);
       if (Number.isFinite(target)) c.target = target;
       await persist(entry, c);
     },
@@ -157,21 +175,26 @@ export function createThermostatControl({
       const c = control(entry);
       const states = [];
       let stopChanged = false;
-      const mode = presetKeyFromCode(entry.presetKeys, patch.targetMode);
+      const modeCode =
+        patch.targetMode ??
+        (entry.profile.reportsChangeOver && patch.changeOverUser !== undefined
+          ? observed.targetMode
+          : undefined);
+      const mode = presetKeyFromCode(entry.presetKeys, modeCode);
       if (mode) {
         const expectedMode = presetKeyFromCode(entry.presetKeys, c.pendingMode);
         if (c.pendingMode === null || mode === expectedMode) {
-          const stopped = patch.targetMode === PRESETS.standby.code;
+          const stopped = modeCode === PRESETS.standby.code;
           stopChanged = stopped !== c.stopped;
           c.stopped = stopped;
           c.pendingMode = null;
         }
         states.push({
           device_feature_external_id: entry.ids.feature(STANDARD.MODE),
-          state: patch.targetMode === PRESETS.standby.code ? 0 : 1,
+          state: modeCode === PRESETS.standby.code ? 0 : runningThermostatMode(entry, observed),
         });
       }
-      const target = effectiveTarget(observed);
+      const target = effectiveTarget(observed, entry.profile);
       if (c.stopped) {
         if (Number.isFinite(c.target)) states.push(...targetStates(entry, c.target));
       } else if (Number.isFinite(target) && (c.expected === null || target === c.expected)) {

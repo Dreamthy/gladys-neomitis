@@ -92,11 +92,14 @@ remain available for existing scenes.
 
 **Version 1.1 requires Gladys 5.2 and SDK 0.15.** Standard controls and a
 summary widget complement the legacy switches, whose identifiers are retained.
-EV30 uses one **Température de consigne** shared by direct controls and the
+EV30, ECTRL, ESTAT, RSS-ECTRL, NTD and ETRV use one **Température de consigne** shared by direct controls and the
 native thermostat, plus **Mode du radiateur** for physical standby. A target
 written while stopped is remembered; an explicit override can resume heating.
 An already-created duplicate remains a compatibility alias to preserve
-existing thermostat and scene references. Legacy commands keep their
+existing thermostat and scene references. The five models other than EV30
+still need physical validation. Pilot-wire EWS uses its full **Mode du module**
+selector; updating from Discovery removes the old `pilot-wire-mode` field.
+Legacy commands keep their
 optimistic feedback and 30-second reconciliation. Read the
 [migration guide](docs/upgrade.en.md) before selecting thermostat features or
 selecting the thermostat window contact. The [development checklist](docs/development-plan.md)

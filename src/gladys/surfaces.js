@@ -1,5 +1,5 @@
 import { FEATURE, presetFeatureKey } from '../devices/features.js';
-import { STANDARD } from '../devices/standard.js';
+import { STANDARD, nativeThermostat, runningThermostatMode } from '../devices/standard.js';
 import { registerHeaterWidget } from './heater-widget.js';
 
 /** All commands enter the same validated, per-device queue as device controls. */
@@ -22,9 +22,8 @@ export function registerSurfaces(gladys, { findEntry, command, status }) {
   };
   const setTemperature = async (device, temperature) => {
     const entry = findEntry(device);
-    // This action explicitly starts a derogation. Ordinary shared-setpoint
-    // writes leave an EV30 in standby until its physical mode is resumed.
-    if (entry.model === 'EV30')
+    // Explicit overrides may resume; ordinary shared targets preserve standby.
+    if (nativeThermostat(entry))
       await command(device, FEATURE.TARGET_TEMP, temperature, { resume: true });
     else await command(device, FEATURE.TARGET_TEMP, temperature);
   };
@@ -42,9 +41,11 @@ export function registerSurfaces(gladys, { findEntry, command, status }) {
   });
   gladys.onSceneAction('set_heating', async ({ device, enabled }) => {
     const entry = findEntry(device);
-    const key = entry.model === 'EV30' ? STANDARD.MODE : STANDARD.RELAY;
+    const key = nativeThermostat(entry) ? STANDARD.MODE : STANDARD.RELAY;
     if (typeof enabled !== 'boolean') throw new Error('Expected a boolean');
-    await command(device, key, enabled ? 1 : 0);
+    // NTD follows the installation's changeover rather than changing it.
+    const running = nativeThermostat(entry) ? runningThermostatMode(entry) : 1;
+    await command(device, key, enabled ? running : 0);
     return { accepted: true };
   });
 

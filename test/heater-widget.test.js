@@ -206,7 +206,7 @@ test('missing created controls do not produce unusable buttons', async () => {
   assert.deepEqual(commands, []);
 });
 
-test('EWS widget uses the full observed module mode and explains six-order limitations', async () => {
+test('EWS widget uses the full observed module mode without a six-order duplicate', async () => {
   const { get, entry } = await widget(
     axencoThermostat({ model: 'EWS', state: { deviceType: 1, targetMode: 40 } }),
   );
@@ -231,7 +231,7 @@ test('EWS widget uses the full observed module mode and explains six-order limit
     entry.observedState.targetMode = code;
     content = await get({ show_diagnostics: true });
     assert.equal(rows(content).find((r) => r.label.en === 'Module mode').value, expected);
-    assert.equal(limitation(rows(content)).color, 'warning');
+    assert.equal(limitation(rows(content)), undefined);
   }
   entry.observedState.targetMode = 4;
   content = await get();

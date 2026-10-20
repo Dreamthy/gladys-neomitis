@@ -8,7 +8,8 @@ the local schedule does not make Neomitis devices work without Internet.
 
 Update Gladys and the integration image, then use **Update** in Discovery for
 each existing device. Do not delete and recreate devices. All legacy external
-ids are retained, so existing scenes can keep using them. New states are only
+ids are retained except the retired EWS `pilot-wire-mode` duplicate, described
+below. New states are only
 published after their features have been created by the user.
 
 ## Direct control without a Gladys thermostat
@@ -19,11 +20,12 @@ controls, scenes and Gladys's thermostat. Its historical `target-temperature`
 identifier is retained. Manufacturer programmes, per-mode setpoints, sensors,
 the Neomitis widget and scene actions remain available independently.
 
-On EV30, changing this target in standby remembers it without waking the
+On EV30, ECTRL, ESTAT, RSS-ECTRL, NTD and ETRV, changing this target in standby remembers it without waking the
 heater. Resume using **Chauffage** on **Mode du radiateur**, an active Axenco
 mode, or the widget/scene action **Apply an override**. This explicit override
-starts heating with the requested temperature in one captured Axenco command.
-Other models retain their historical temperature command behaviour.
+starts an override at the requested temperature. Main devices use their
+existing temperature payload; NTD and ETRV use their gateway with two
+successive calls: setpoint mode, then target temperature.
 
 Scan and choose **Update** in Discovery. Already-created mode switches retain
 their identifiers for existing scenes; new devices use the selector alone.
@@ -35,7 +37,11 @@ extra text feature on new devices with a selector. An already-created text
 feature remains as **Mode actuel (compatibilité)** to preserve its references.
 Devices without a selector, such as UFH, retain their read-only indication.
 
-## EV30: real thermostat
+## Temperature-regulating devices: real thermostat
+
+Physical mode and protected stop/resume are supported on **EV30, ECTRL,
+ESTAT, RSS-ECTRL, NTD and ETRV**. Software support does not establish hardware
+validation for the five models other than EV30.
 
 Create a **real thermostat** in Gladys's Thermostat integration. Select
 **Température de consigne** as its target, **Mode du radiateur** as its operating
@@ -44,8 +50,13 @@ empty: no hardware heating indication has been verified.
 
 **Mode du radiateur** is the renamed **Mode thermostat Gladys**, retaining its
 identifier. It represents physical OFF/HEATING. Configure it so Gladys can
-both put the heater into standby and resume it. The EV30 regulates itself;
+both put the heater into standby and resume it. These devices regulate themselves;
 no second hysteresis/TPI loop is added.
+
+NTD reports Heating or Cooling according to `changeOverUser`. Stop and resume
+follow that installation setting; a mode request that would change it is
+rejected. The installation changeover stays read-only. This mode represents
+permission to run, not measured heater or valve activity.
 
 Disable the manufacturer's programme before using a Gladys schedule.
 **Gladys Schedule** and **MyNeomitis Auto** are separate programmes. To keep a
@@ -67,11 +78,13 @@ device. A removed alias is not recreated on later scans.
 
 ### OFF, resume and feedback
 
-OFF sends the measured Axenco standby command. The frost fallback written
+OFF sends standby through the device or its gateway. That command has been
+measured on EV30; other models still need physical validation. The frost fallback written
 afterwards is remembered without sending `targetMode: 8`, which would wake the
 heater. Stop intent and the parked target persist in `/data` across container
 restarts. Cloud failures and ignored commands are still reported as failures.
-Resume and its following target are combined into one temperature command;
+Resume and its following target use one temperature sequence (one request
+on main devices, two on NTD/ETRV);
 resume alone uses the remembered target. A subsequent OFF or direct Axenco
 mode cancels a delayed resume.
 
@@ -91,23 +104,25 @@ false manual override. The failure event and logs report it; the schedule can
 retry. Divergent targets are not treated as manual changes while a target is
 pending.
 
-Stop protection and the standard mode remain **EV30-only**, whose protocol
-was measured. ECTRL, ESTAT, RSS-ECTRL, NTD and ETRV retain historical controls;
-expanding support requires hardware and gateway validation.
+Existing target identifiers are unchanged. NTD and ETRV feedback uses
+`targetTemp`, without a stale `overrideTemp` replacing it. Bounds remain
+enforced. Direct controls, the widget, scenes and Gladys's thermostat share
+the same protected controller.
 
 ## EWS and window contacts
 
 - Relay EWS: **Marche / Arrêt** sends real ON and OFF commands and can be used
   by a virtual thermostat with a separate room sensor. Its inherited protocol
   still needs testing on your installation.
-- Pilot-wire EWS: **Ordre fil pilote** translates the supported standard modes
-  to Axenco codes. The field is now named **Commande fil pilote (6 ordres)**.
+- Pilot-wire EWS: **Mode** / **Commande fil pilote (6 ordres)**
+  (`pilot-wire-mode`) is retired. Updating from Discovery removes it on
+  existing devices. Replace references to it in scenes or widgets with the
+  full mode selector before updating.
   The full EWS selector is named **Mode du module**, with Auto and Boost on
   pilot-wire models. EWS labels now use **Confort −1 °C**, **Confort −2 °C**
-  and **Arrêt**, keeping feature IDs, scene values and command codes unchanged.
-  Auto, Boost and unknown modes have no six-order equivalent; that control
-  retains its last known order. The widget displays the observed full mode
-  and flags this limitation. Gladys 5.2's virtual thermostat
+  and **Arrêt**, keeping selector and legacy switch IDs, scene values and
+  command codes unchanged. The widget displays the observed full mode.
+  Gladys 5.2's virtual thermostat
   does not accept a pilot-wire mode as its actuator. Legacy preset switches
   ignore OFF and must not be used as binary heating actuators.
 - New devices expose one standard **Fenêtre ouverte** contact when reporting
@@ -146,7 +161,7 @@ Up to two controls are offered according to the device's created features:
   active Gladys schedule may subsequently take over again.
 
 The MyNeomitis Auto and Stop/Resume shortcuts were removed from the widget.
-Standard device features and scene actions are retained.
+Scene actions remain available; the EWS six-order duplicate is retired.
 
 Healthy connection details are hidden by default. Cloud, push and device
 connection failures remain visible. Enable **Show connection details** in the
@@ -159,24 +174,29 @@ buttons control hardware directly without stopping that schedule. A command
 acknowledgement is not physical confirmation.
 
 Scene actions choose an Axenco mode, apply a temperature override, resume the
-MyNeomitis programme or start/stop the device control (EV30 or relay EWS).
+MyNeomitis programme or start/stop the device control (the six temperature
+models or relay EWS).
 The last action does not stop a Gladys schedule: use the generic mode action
 on the thermostat created by Gladys for that. `accepted` acknowledges the
 request, not the physical result. Unsupported per-model modes are rejected.
 
 **Command not confirmed** exposes the device, feature and reason for a
-notification scene. Main devices are re-read 30 seconds after commands. Auto
+notification scene. Devices are re-read 30 seconds after commands. Main devices
+use their individual endpoint; sub-devices are matched by device ID in a forced
+account-device-list read. Auto
 codes 0/60/61 compare semantically. “Not confirmed” means the expected state
 was not observed at that read, without assuming the command was permanently
-ignored. Repeating an order retains its pending expected values. Unverified gateway responses are not used
-to claim confirmation of sub-devices.
+ignored. Repeating an order retains its pending expected values. A device
+missing from the list reports unavailable confirmation rather than using
+another device's state.
 
 Push failures mark the cloud transport degraded while REST refresh continues.
 REST failure reports disconnected/unreachable; recovery clears these statuses.
 No change is not a failure. Freshly re-read unchanged values are re-published
 at most once per 30 minutes. Commands are ordered per device and expire after
 one second waiting in the queue. Axenco writes, including token renewal, have
-a 3.5-second budget to leave time for Gladys's acknowledgement. A timeout does
+a 3.5-second budget to leave time for Gladys's acknowledgement. Both requests
+in an NTD/ETRV mode-and-target sequence share that budget. A timeout does
 not prove the hardware did nothing: inspect its feedback.
 
 ## Development and publishing

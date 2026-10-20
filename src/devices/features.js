@@ -1,6 +1,6 @@
 // One Axenco device uses a mode selector; existing preset switches keep
 // their historical feature ids so existing Gladys scenes remain valid. Gladys 5.2 uses
-// the shared EV30 setpoint, a physical mode, an EWS relay and pilot-wire controls.
+// the shared thermostat setpoint, a physical mode and an EWS relay.
 // The full Axenco preset list is also available in the integration widget.
 // The widget shows Auto details and unknown codes without an extra text feature.
 
@@ -11,7 +11,7 @@ import {
 } from '@gladysassistant/integration-sdk';
 import { DEFAULT_MAX_TEMP, DEFAULT_MIN_TEMP, PRESETS, presetLabelFor } from '../axenco/const.js';
 import { selectorFromExternalId } from '../selector.js';
-import { STANDARD, PILOT_PRESETS } from './standard.js';
+import { STANDARD } from './standard.js';
 
 export const DEVICE_TYPE = 'axenco';
 
@@ -210,24 +210,25 @@ export function buildFeatures({
       }),
     );
 
-  if (model === 'EV30') {
+  if (profile.nativeThermostat) {
     add(
       STANDARD.MODE,
       'Mode du radiateur',
       DEVICE_FEATURE_CATEGORIES.THERMOSTAT,
       DEVICE_FEATURE_TYPES.THERMOSTAT.MODE,
       0,
-      1,
+      profile.reportsChangeOver ? 2 : 1,
       {
         supported_options: [
           { value: 0, label: 'Arrêt' },
           { value: 1, label: 'Chauffage' },
+          ...(profile.reportsChangeOver ? [{ value: 2, label: 'Rafraîchissement' }] : []),
         ],
       },
     );
     // Gladys deletes missing features on device update. Retain an existing
     // alias so saved thermostat/scenes and history are not silently destroyed.
-    if (legacyThermostatTarget)
+    if (model === 'EV30' && legacyThermostatTarget)
       add(
         STANDARD.LEGACY_TARGET,
         'Consigne (compatibilité)',
@@ -246,23 +247,6 @@ export function buildFeatures({
       DEVICE_FEATURE_TYPES.SWITCH.BINARY,
       0,
       1,
-    );
-  }
-  if (model === 'EWS' && state.deviceType !== 0) {
-    const supported = Object.entries(PILOT_PRESETS).filter(([, key]) => presetKeys.includes(key));
-    add(
-      STANDARD.PILOT,
-      'Commande fil pilote (6 ordres)',
-      DEVICE_FEATURE_CATEGORIES.HEATER,
-      DEVICE_FEATURE_TYPES.HEATER.PILOT_WIRE_MODE,
-      0,
-      5,
-      {
-        supported_options: supported.map(([value, key]) => ({
-          value: Number(value),
-          label: presetLabelFor(model, key),
-        })),
-      },
     );
   }
   if (

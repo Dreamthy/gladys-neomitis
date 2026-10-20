@@ -127,7 +127,7 @@ test('selector commands use the existing main, relay, pilot-wire and gateway rou
   }
 });
 
-test('EWS labels align both controls while preserving feature IDs, mode keys and commands', async () => {
+test('EWS removes the six-order duplicate and preserves the full selector and legacy modes', async () => {
   const raw = axencoThermostat({ model: 'EWS', state: { deviceType: 1 } });
   const ids = fakeGladys.externalIds('axenco', raw._id);
   const existing = [STANDARD.PILOT, FEATURE.MODE_SELECT, 'preset:eco_1', 'preset:standby'];
@@ -146,25 +146,22 @@ test('EWS labels align both controls while preserving feature IDs, mode keys and
   const pilot = entry.gladysDevice.features.find(
     (f) => f.external_id === ids.feature(STANDARD.PILOT),
   );
-  assert.equal(pilot.name, 'Commande fil pilote (6 ordres)');
+  assert.equal(pilot, undefined);
   assert.equal(feature(entry).name, 'Mode du module');
   const client = fakeAxencoClient();
-  for (const [key, standard, code, label] of [
-    ['eco_1', 3, 40, 'Confort −1 °C'],
-    ['eco_2', 4, 41, 'Confort −2 °C'],
-    ['standby', 0, 4, 'Arrêt'],
+  for (const [key, code, label] of [
+    ['eco_1', 40, 'Confort −1 °C'],
+    ['eco_2', 41, 'Confort −2 °C'],
+    ['standby', 4, 'Arrêt'],
   ]) {
     assert.equal(feature(entry).supported_options.find((o) => o.value === key).label, label);
-    assert.equal(pilot.supported_options.find((o) => o.value === standard).label, label);
     assert.equal(modeLabel(entry, { targetMode: code }), label);
     await handleSetValue(client, entry, FEATURE.MODE_SELECT, key);
-    await handleSetValue(client, entry, STANDARD.PILOT, standard);
-    assert.deepEqual(client.calls.slice(-2), [
-      { name: 'setDeviceMode', args: [entry.axencoId, code] },
+    assert.deepEqual(client.calls.slice(-1), [
       { name: 'setDeviceMode', args: [entry.axencoId, code] },
     ]);
   }
-  for (const key of existing)
+  for (const key of existing.filter((key) => key !== STANDARD.PILOT))
     assert.ok(entry.gladysDevice.features.some((f) => f.external_id === ids.feature(key)));
   assert.equal(
     entry.gladysDevice.features.find((f) => f.external_id === ids.feature('preset:eco_1')).name,
@@ -174,6 +171,9 @@ test('EWS labels align both controls while preserving feature IDs, mode keys and
     modeLabel(describeDevice(fakeGladys, axencoThermostat()), { targetMode: 4 }),
     'Veille',
   );
+  const count = client.calls.length;
+  await assert.rejects(handleSetValue(client, entry, STANDARD.PILOT, 0), /cannot be written/);
+  assert.equal(client.calls.length, count, 'stale six-order commands never reach Axenco');
 });
 
 test('override selection writes the observed target rather than an ignored mode-8 order', async () => {

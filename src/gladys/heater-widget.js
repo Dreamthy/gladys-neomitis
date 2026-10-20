@@ -1,7 +1,7 @@
 import { FEATURE, presetFeatureKey } from '../devices/features.js';
 import { modeLabel } from '../devices/index.js';
 import { presetLabelFor, presetKeyFromCode } from '../axenco/const.js';
-import { STANDARD, pilotOrderFromCode } from '../devices/standard.js';
+import { STANDARD } from '../devices/standard.js';
 
 /** Compact direct controls; the Gladys thermostat remains the scheduling UI. */
 export function registerHeaterWidget(gladys, { findEntry, status, chooseMode, setTemperature }) {
@@ -54,20 +54,6 @@ export function registerHeaterWidget(gladys, { findEntry, status, chooseMode, se
         color: !activeMode ? 'warning' : stopped ? 'neutral' : 'info',
       },
     ];
-    if (
-      entry.model === 'EWS' &&
-      featureFor(entry, features, STANDARD.PILOT) &&
-      Number.isFinite(modeCode) &&
-      pilotOrderFromCode(modeCode) === undefined
-    )
-      items.push({
-        label: { en: 'Six-order control', fr: 'Fil pilote (6 ordres)' },
-        value: {
-          en: 'Mode outside list: last order retained',
-          fr: 'Mode hors liste : dernier ordre conservé',
-        },
-        color: 'warning',
-      });
     const window = observed.windowStatus;
     if ([true, false, 0, 1].includes(window)) {
       items.push({
@@ -134,14 +120,6 @@ export function registerHeaterWidget(gladys, { findEntry, status, chooseMode, se
                 entry.model === 'EWS'
                   ? { en: 'Module mode', fr: 'Mode du module' }
                   : { en: 'Axenco mode', fr: 'Mode Axenco' },
-              ...(entry.model === 'EWS' && entry.state.deviceType !== 0
-                ? {
-                    description: {
-                      en: 'Full module modes. Auto and Boost have no equivalent in the six-order pilot-wire control, which retains its last known order.',
-                      fr: 'Modes complets du module. Auto et Boost ne sont pas représentables dans la commande fil pilote à six ordres, qui conserve son dernier ordre connu.',
-                    },
-                  }
-                : {}),
               ...(modes.includes(activeMode) ? { default: activeMode } : {}),
               options: modes.map((key) => ({
                 value: key,

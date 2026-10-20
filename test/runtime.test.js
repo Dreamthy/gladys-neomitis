@@ -4,15 +4,16 @@ import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
 import { createIntegration } from '../index.js';
 import { describeDevice } from '../src/devices/index.js';
 import { STANDARD } from '../src/devices/standard.js';
-import { axencoThermostat, fakeAxencoClient } from './helpers/fakes.js';
+import { axencoThermostat, axencoSubDevice, fakeAxencoClient } from './helpers/fakes.js';
 
 async function runtime(
   t,
-  { created = true, legacyTarget = false, legacyReadOnly = false, state = {} } = {},
+  { created = true, model = 'EV30', legacyTarget = false, legacyReadOnly = false, state = {} } = {},
 ) {
   const gladys = createFakeGladys({ config: { email: 'fake@example.invalid', password: 'fake' } });
-  const raw = axencoThermostat({
-    state: { currentTemp: 19, overrideTemp: 20, targetMode: 8, ...state },
+  const raw = (['NTD', 'ETRV', 'UFH'].includes(model) ? axencoSubDevice : axencoThermostat)({
+    model,
+    state: { currentTemp: 19, overrideTemp: 20, targetTemp: 20, targetMode: 8, ...state },
   });
   const ids = gladys.externalIds('axenco', raw._id);
   const description = describeDevice(
@@ -82,6 +83,89 @@ async function runtime(
   await app.start();
   return { app, gladys, raw, client, listeners, description };
 }
+
+for (const model of ['ECTRL', 'ESTAT', 'RSS-ECTRL', 'NTD', 'ETRV']) {
+  test(`${model}: SDK controls, scenes and hardware observations share one protected target`, async (t) => {
+    const { app, gladys, raw, client, listeners, description } = await runtime(t, {
+      model,
+      state: { targetMode: 4, comfLimitMin: 7, comfLimitMax: 30 },
+    });
+    const id = description.ids.device;
+    const targetId = description.ids.feature(STANDARD.TARGET);
+    const mode = description.gladysDevice.features.find(
+      (f) => f.external_id === description.ids.feature(STANDARD.MODE),
+    );
+    assert.ok(mode);
+    assert.equal(gladys.fake.lastState(mode.external_id), 0);
+    await app.command(id, STANDARD.TARGET, 7);
+    assert.equal(client.calls.length, 0);
+    assert.equal((await gladys.fake.setValue(description.gladysDevice, mode, 1)).success, true);
+    await app.command(id, STANDARD.TARGET, 21);
+    const sub = description.profile.subDevice;
+    assert.deepEqual(
+      client.calls.map((c) => c.name),
+      sub ? ['setSubDeviceMode', 'setSubDeviceTemperature'] : ['setDeviceTemperature'],
+    );
+    assert.equal(
+      gladys.fake.lastState(targetId),
+      7,
+      'the requested target is not hardware feedback',
+    );
+    listeners.get(raw._id)({ targetMode: 8, [description.profile.targetTempKey]: 21 });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(gladys.fake.lastState(targetId), 21);
+    assert.equal(
+      (await gladys.fake.sceneAction('set_heating', { device: id, enabled: false })).success,
+      true,
+    );
+    const afterStop = client.calls.length;
+    await app.command(id, STANDARD.TARGET, 7);
+    assert.equal(client.calls.length, afterStop);
+    assert.equal(
+      (await gladys.fake.sceneAction('set_temperature', { device: id, temperature: 20 })).success,
+      true,
+    );
+    assert.equal(client.calls.at(-1).args.at(-1), 20);
+    assert.equal(
+      client.calls.at(-1).name,
+      sub ? 'setSubDeviceTemperature' : 'setDeviceTemperature',
+    );
+  });
+}
+
+test('EWS discovery removes the retired six-order field and rejects its stale commands', async (t) => {
+  const { app, gladys, description, client } = await runtime(t, {
+    model: 'EWS',
+    state: { deviceType: 1, targetMode: 40 },
+  });
+  const old = {
+    ...description.gladysDevice,
+    features: [
+      ...description.gladysDevice.features,
+      {
+        name: 'Mode',
+        external_id: description.ids.feature(STANDARD.PILOT),
+        category: 'heater',
+        type: 'pilot-wire-mode',
+        min: 0,
+        max: 5,
+        read_only: false,
+      },
+    ],
+  };
+  gladys.fake.devices = [old];
+  await gladys.fake.deviceUpdated(old);
+  await app.refresh();
+  const updated = gladys.fake.discoveredDevices[0];
+  assert.ok(
+    !updated.features.some((f) => f.external_id === description.ids.feature(STANDARD.PILOT)),
+  );
+  await assert.rejects(app.command(description.ids.device, STANDARD.PILOT, 5), /cannot be written/);
+  assert.equal(client.calls.length, 0);
+  await gladys.fake.deviceUpdated(updated);
+  await app.command(description.ids.device, 'axenco-mode', 'eco_2');
+  assert.deepEqual(client.calls, [{ name: 'setDeviceMode', args: [description.axencoId, 41] }]);
+});
 
 test('runtime discovers devices without publishing uncreated states, then seeds creation and updates', async (t) => {
   const { gladys, description } = await runtime(t, { created: false });

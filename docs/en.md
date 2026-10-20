@@ -60,16 +60,21 @@ It works independently: creating a Gladys thermostat is optional.
 - **Current temperature** — sensor, in °C, with history (charts).
 - **Target temperature** — writable setpoint. Its bounds come from the device
   itself (`comfLimitMin` / `comfLimitMax`) rather than a hard-coded 7–30 °C: a
-  heater limited to 16–21 °C really shows 16–21 °C. On EV30 it follows the
+  heater limited to 16–21 °C really shows 16–21 °C. On main devices it follows the
   effective target of the active mode. In standby it remembers the value
   without waking the heater; resume with a mode or an explicit override.
+- **Mode du radiateur** — OFF/HEATING on EV30, ECTRL, ESTAT, RSS-ECTRL, NTD
+  and ETRV; NTD also reports Cooling according to the installation changeover,
+  which stays read-only. Select it with the target in a real Gladys thermostat.
+  Protected stop/resume covers all six models; this project only has hardware
+  observations for EV30 and EWS.
 - **Mode Axenco** — one selector for the modes supported by the model:
   Comfort, Eco, Auto, Boost, Standby, etc. It works without a Gladys thermostat.
   On EWS it is named **Mode du module**, using **Confort −1 °C**,
   **Confort −2 °C** and **Arrêt** to match Gladys pilot-wire terminology.
-  The separate **Commande fil pilote (6 ordres)** control represents only
-  the six standard orders. In Auto or Boost it retains its last known order;
-  the widget displays the full observed mode and flags that limitation.
+  The **Mode** / **Commande fil pilote (6 ordres)** duplicate is removed when
+  updating from Discovery. Replace any references before updating. The widget
+  displays the full observed mode without a stale standard-order value.
   On temperature-regulating devices, **Dérogation (consigne actuelle)** applies
   the last observed Axenco target. To choose another temperature, change
   **Température de consigne** or use the widget.
@@ -177,7 +182,7 @@ when already created.
   The native Gladys thermostat offers a separate schedule. Axenco Auto follows
   the manufacturer schedule.
 - **Legacy commands publish optimistically.** Their requested values are
-  corrected by subsequent observations. The new native EV30 target instead
+  corrected by subsequent observations. Shared targets on all six thermostat models instead
   uses confirmed hardware feedback; see the migration guide.
 
 ## Verification status per model
@@ -186,7 +191,8 @@ EV30 and EWS observations do not validate other models' protocols. The
 integration currently writes `targetMode: 0` for Auto on every profile that
 offers it. Main devices share the `targetTemp` + `overrideTemp` +
 `targetMode: 8` setpoint command captured on EV30; NTD and ETRV use their
-gateway with `targetTemp` alone. Applying these commands to untested models
+gateway with `targetMode: 8`, then `targetTemp` in a second call, as Home
+Assistant does. Applying these commands to untested models
 still needs hardware verification.
 
 The comparison on 20 October 2026 uses the

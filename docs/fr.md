@@ -61,16 +61,21 @@ Il fonctionne de manière autonome : créer un thermostat Gladys est facultatif.
 - **Température actuelle** — capteur, en °C, historisée (graphiques).
 - **Température de consigne** — consigne réglable. Ses bornes viennent de l'appareil
   lui-même (`comfLimitMin` / `comfLimitMax`), pas d'un 7–30 °C figé : un
-  radiateur limité à 16–21 °C affichera bien 16–21 °C. Sur EV30, elle suit la
+  radiateur limité à 16–21 °C affichera bien 16–21 °C. Sur les appareils principaux, elle suit la
   consigne effective du mode en cours. En veille, elle mémorise la valeur sans
   réveiller le radiateur : reprendre par le mode ou une dérogation explicite.
+- **Mode du radiateur** — Arrêt/Chauffage pour EV30, ECTRL, ESTAT, RSS-ECTRL,
+  NTD et ETRV ; NTD indique aussi Rafraîchissement selon la bascule de
+  l'installation, qui reste en lecture seule. À sélectionner avec la consigne
+  dans un thermostat réel Gladys. La protection arrêt/reprise est commune aux
+  six modèles ; seuls EV30 et EWS disposent de retours matériels dans ce projet.
 - **Mode Axenco** — sélecteur unique des modes propres au modèle : Confort,
   Éco, Auto, Boost, Veille, etc. Il fonctionne sans thermostat Gladys.
   Sur EWS, il s'appelle **Mode du module** ; Confort −1 °C, Confort −2 °C
-  et Arrêt reprennent la terminologie du fil pilote Gladys. Le champ distinct
-  **Commande fil pilote (6 ordres)** représente uniquement les six ordres
-  standard. En Auto ou Boost, il conserve son dernier ordre connu ; le widget
-  affiche le mode complet observé et signale cette limite.
+  et Arrêt reprennent la terminologie du fil pilote Gladys. Le doublon
+  **Mode** / **Commande fil pilote (6 ordres)** est retiré lors de la mise à jour
+  depuis Découverte. Remplacer ses références éventuelles avant cette mise à
+  jour. Le widget affiche le mode complet observé, sans valeur standard périmée.
   L'option **Dérogation (consigne actuelle)**, sur les appareils régulant une
   température, réutilise la dernière consigne Axenco observée. Pour choisir une
   autre température, régler **Température de consigne** ou utiliser le widget.
@@ -184,7 +189,7 @@ _Mode actuel (compatibilité)_ reste disponible seulement s'il existe déjà.
   « Auto » suit ce programme.
 - **Les commandes historiques publient de manière optimiste.** Leurs valeurs
   demandées sont corrigées par les observations suivantes. La consigne
-  commune EV30 utilise les retours confirmés du matériel ; voir le guide de
+  commune des six modèles à consigne utilise les retours confirmés du matériel ; voir le guide de
   migration.
 
 ## État de vérification par modèle
@@ -193,7 +198,8 @@ Les observations sur EV30 et EWS ne valident pas le protocole des autres
 modèles. L'intégration conserve actuellement `targetMode: 0` pour Auto sur
 tous les profils qui le proposent. Les appareils principaux partagent la
 commande de consigne `targetTemp` + `overrideTemp` + `targetMode: 8`, capturée
-sur EV30 ; NTD et ETRV passent par leur passerelle avec `targetTemp` seul.
+sur EV30 ; NTD et ETRV passent par leur passerelle avec `targetMode: 8`, puis
+`targetTemp` dans un second appel, comme Home Assistant.
 Cette généralisation aux appareils non testés reste à vérifier.
 
 La comparaison du 20 octobre 2026 porte sur le

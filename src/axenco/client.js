@@ -188,8 +188,9 @@ export class AxencoClient {
    * @example
    * await client.request('GET', '/v1/devices/abc');
    */
-  async request(method, path, body) {
-    const deadline = method === 'GET' ? null : Date.now() + COMMAND_TIMEOUT_MS;
+  async request(method, path, body, { deadline: sequenceDeadline = Infinity } = {}) {
+    const deadline =
+      method === 'GET' ? null : Math.min(Date.now() + COMMAND_TIMEOUT_MS, sequenceDeadline);
     const remaining = () => {
       const timeout = deadline === null ? REQUEST_TIMEOUT_MS : deadline - Date.now();
       if (timeout <= 0)
@@ -338,10 +339,20 @@ export class AxencoClient {
    * @example
    * await client.setSubDeviceTemperature(device.parents, 'A1B2', 20.5);
    */
-  async setSubDeviceTemperature(parents, rfid, temperature) {
-    await this.request('PATCH', `/v1/devices/${this.gatewayId(parents)}/sub-devices/state`, {
-      parameters: { [rfid]: { targetTemp: temperature } },
-    });
+  async setSubDeviceTemperature(parents, rfid, temperature, options) {
+    await this.request(
+      'PATCH',
+      `/v1/devices/${this.gatewayId(parents)}/sub-devices/state`,
+      { parameters: { [rfid]: { targetTemp: temperature } } },
+      options,
+    );
+  }
+
+  /** Enter override mode then set the gateway target within one command budget. */
+  async setSubDeviceTarget(parents, rfid, temperature) {
+    const options = { deadline: Date.now() + COMMAND_TIMEOUT_MS };
+    await this.setSubDeviceMode(parents, rfid, PRESETS.setpoint.code, options);
+    await this.setSubDeviceTemperature(parents, rfid, temperature, options);
   }
 
   /**
@@ -367,10 +378,13 @@ export class AxencoClient {
    * @example
    * await client.setSubDeviceMode(device.parents, 'A1B2', 1);
    */
-  async setSubDeviceMode(parents, rfid, modeCode) {
-    await this.request('PATCH', `/v1/devices/${this.gatewayId(parents)}/sub-devices/state`, {
-      parameters: { [rfid]: { targetMode: modeCode } },
-    });
+  async setSubDeviceMode(parents, rfid, modeCode, options) {
+    await this.request(
+      'PATCH',
+      `/v1/devices/${this.gatewayId(parents)}/sub-devices/state`,
+      { parameters: { [rfid]: { targetMode: modeCode } } },
+      options,
+    );
   }
 
   /**

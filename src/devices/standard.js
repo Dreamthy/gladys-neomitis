@@ -1,5 +1,5 @@
 // Gladys values are not Axenco values. Keep the translation explicit.
-import { PRESETS } from '../axenco/const.js';
+import { profileFor } from './profiles.js';
 
 export const STANDARD = {
   MODE: 'thermostat-mode',
@@ -7,28 +7,27 @@ export const STANDARD = {
   // Compatibility only: retained in discovery solely when already created.
   LEGACY_TARGET: 'thermostat-temperature',
   RELAY: 'power',
+  // Retired: omitted from EWS discovery; stale commands must be rejected.
   PILOT: 'pilot-wire-mode',
   WINDOW: 'window-contact',
 };
 
-export const PILOT_PRESETS = {
-  0: 'standby',
-  1: 'antifrost',
-  2: 'eco',
-  3: 'eco_1',
-  4: 'eco_2',
-  5: 'comfort',
-};
-
-/** Auto, Boost and unknown modes have no equivalent among the six orders. */
-export function pilotOrderFromCode(code) {
-  const order = Object.entries(PILOT_PRESETS).find(([, key]) => PRESETS[key].code === code);
-  return order ? Number(order[0]) : undefined;
+export function nativeThermostat(entry) {
+  return (entry.profile || profileFor(entry.model))?.nativeThermostat === true;
 }
 
-export function nativeThermostat(entry) {
-  // Only the EV30 protocol has been checked on real hardware.
-  return entry.model === 'EV30';
+/** NTD reports the installation changeover; this integration cannot change it. */
+export function runningThermostatMode(entry, state = entry.observedState || entry.state) {
+  return entry.profile.reportsChangeOver && state.changeOverUser === 1 ? 2 : 1;
+}
+
+export function validateThermostatMode(entry, value) {
+  const max = entry.profile.reportsChangeOver ? 2 : 1;
+  if (!Number.isInteger(value) || value < 0 || value > max)
+    throw new Error(`Expected a thermostat mode between 0 and ${max}`);
+  if (value !== 0 && value !== runningThermostatMode(entry))
+    throw new Error('NTD mode must match the installation heating/cooling changeover');
+  return value;
 }
 
 export function binary(value) {

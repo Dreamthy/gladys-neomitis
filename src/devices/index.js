@@ -21,8 +21,8 @@ import { selectorFromExternalId } from '../selector.js';
 import { profileFor } from './profiles.js';
 import {
   STANDARD,
-  PILOT_PRESETS,
-  pilotOrderFromCode,
+  nativeThermostat,
+  runningThermostatMode,
   binary,
   validateTemperature,
 } from './standard.js';
@@ -64,7 +64,8 @@ export function describeDevice(gladys, axencoDevice) {
   const legacyPresetKeys = selectableKeys.filter((key) =>
     existingFeatureKeys.includes(presetFeatureKey(key)),
   );
-  const legacyThermostatTarget = existingFeatureKeys.includes(STANDARD.LEGACY_TARGET);
+  const legacyThermostatTarget =
+    axencoDevice.model === 'EV30' && existingFeatureKeys.includes(STANDARD.LEGACY_TARGET);
   const modeKeys = presetKeys.filter((key) => key !== 'setpoint' || profile.targetTempKey);
   const state = { ...(axencoDevice.state || {}) };
   const gateway = profile.subDevice ? extractGatewayId(axencoDevice.parents) : null;
@@ -214,10 +215,8 @@ export function buildStates(entry, patch) {
     }
   }
   if (isNumber(modeCode)) {
-    const pilot = pilotOrderFromCode(modeCode);
-    if (pilot !== undefined) push(STANDARD.PILOT, pilot);
-    if (entry.model === 'EV30' && presetKeyFromCode(presetKeys, modeCode))
-      push(STANDARD.MODE, modeCode === PRESETS.standby.code ? 0 : 1);
+    if (nativeThermostat(entry) && presetKeyFromCode(presetKeys, modeCode))
+      push(STANDARD.MODE, modeCode === PRESETS.standby.code ? 0 : runningThermostatMode(entry));
   }
   if (patch.windowStatus !== undefined) {
     const raw = patch.windowStatus;
@@ -272,11 +271,6 @@ export async function handleSetValue(client, entry, featureKey, value) {
       );
     }
     return setPreset(client, entry, value, 1);
-  }
-  if (featureKey === STANDARD.PILOT) {
-    if (!Number.isInteger(value) || !PILOT_PRESETS[value])
-      throw new Error('Invalid pilot-wire mode');
-    return setPreset(client, entry, PILOT_PRESETS[value], 1);
   }
   if (featureKey === FEATURE.TARGET_TEMP) {
     return setTargetTemperature(client, entry, value);
@@ -378,7 +372,7 @@ async function setChangeOver(client, entry, value) {
   return buildStates(entry, { changeOverUser: code });
 }
 
-async function writeMode(client, entry, code) {
+export async function writeMode(client, entry, code) {
   if (entry.profile.subDevice) {
     await client.setSubDeviceMode(requireParents(entry), requireRfid(entry), code);
     return;
@@ -386,14 +380,14 @@ async function writeMode(client, entry, code) {
   await client.setDeviceMode(entry.axencoId, code);
 }
 
-function requireParents(entry) {
+export function requireParents(entry) {
   if (!entry.gateway) {
     throw new Error(`Sub-device ${entry.axencoId} has no gateway in its parents`);
   }
   return entry.parents;
 }
 
-function requireRfid(entry) {
+export function requireRfid(entry) {
   if (!entry.rfid) {
     throw new Error(`Sub-device ${entry.axencoId} has no rfid`);
   }

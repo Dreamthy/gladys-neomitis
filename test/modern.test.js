@@ -20,13 +20,15 @@ import {
   axencoSubDevice,
 } from './helpers/fakes.js';
 
-function harness(t, { saved = {}, state = {} } = {}) {
+function harness(t, { model = 'EV30', saved = {}, state = {} } = {}) {
   const entry = describeDevice(
     fakeGladys,
-    axencoThermostat({
+    (['NTD', 'ETRV'].includes(model) ? axencoSubDevice : axencoThermostat)({
+      model,
       state: {
         targetMode: 8,
         overrideTemp: 20,
+        targetTemp: 20,
         currentTemp: 19,
         comfLimitMin: 7,
         comfLimitMax: 30,
@@ -56,6 +58,120 @@ function harness(t, { saved = {}, state = {} } = {}) {
 }
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+for (const model of ['EV30', 'ECTRL', 'ESTAT', 'RSS-ECTRL', 'NTD', 'ETRV']) {
+  test(`${model}: native stop, persisted fallback, grouped resume and observed target`, async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const { control, entry, client, records, checks } = harness(t, { model });
+    const sub = entry.profile.subDevice;
+    const args = sub ? [entry.parents, entry.rfid] : [entry.axencoId];
+    const modeMethod = sub ? 'setSubDeviceMode' : 'setDeviceMode';
+    await control.command(entry, STANDARD.MODE, 0);
+    await control.command(entry, STANDARD.TARGET, 7);
+    assert.deepEqual(client.calls, [{ name: modeMethod, args: [...args, 4] }]);
+    const restarted = harness(t, { model, saved: Object.fromEntries(records) });
+    await restarted.control.command(restarted.entry, STANDARD.TARGET, 8);
+    assert.equal(restarted.client.calls.length, 0, 'a restart preserves the stop intent');
+    await control.command(entry, STANDARD.MODE, 1);
+    assert.deepEqual(await control.command(entry, STANDARD.TARGET, 21), []);
+    t.mock.timers.tick(200);
+    await settle();
+    assert.deepEqual(
+      client.calls.slice(1),
+      sub
+        ? [
+            { name: 'setSubDeviceMode', args: [...args, 8] },
+            { name: 'setSubDeviceTemperature', args: [...args, 21] },
+          ]
+        : [{ name: 'setDeviceTemperature', args: [...args, 21] }],
+    );
+    const field = entry.profile.targetTempKey;
+    assert.deepEqual(checks.at(-1)[2], { [field]: 21, targetMode: 8 });
+    assert.ok(
+      !control
+        .observe(entry, { [field]: 20, targetMode: 8 })
+        .some((s) => s.device_feature_external_id === entry.ids.feature(STANDARD.TARGET)),
+    );
+    assert.equal(
+      control
+        .observe(entry, { [field]: 21 })
+        .find((s) => s.device_feature_external_id === entry.ids.feature(STANDARD.TARGET)).state,
+      21,
+    );
+  });
+}
+
+test('gateway native targets use targetTemp rather than a stale override or comfort value', (t) => {
+  const { control, entry } = harness(t, {
+    model: 'ETRV',
+    state: { targetTemp: 19, overrideTemp: 25, comfTemp: 23, targetMode: 1 },
+  });
+  const target = control
+    .observe(entry, entry.state)
+    .find((s) => s.device_feature_external_id === entry.ids.feature(STANDARD.TARGET));
+  assert.equal(target.state, 19);
+});
+
+test('NTD reports cooling and refuses to switch the installation changeover', async (t) => {
+  const { control, entry, client } = harness(t, { model: 'NTD', state: { changeOverUser: 1 } });
+  const mode = entry.gladysDevice.features.find(
+    (f) => f.external_id === entry.ids.feature(STANDARD.MODE),
+  );
+  assert.equal(mode.max, 2);
+  assert.equal(
+    control
+      .observe(entry, entry.state)
+      .find((s) => s.device_feature_external_id === mode.external_id).state,
+    2,
+  );
+  await assert.rejects(control.command(entry, STANDARD.MODE, 1), /changeover/);
+  assert.equal(client.calls.length, 0);
+  await control.command(entry, STANDARD.MODE, 0);
+  await control.command(entry, STANDARD.TARGET, 7);
+  await control.command(entry, STANDARD.MODE, 2);
+  await control.command(entry, STANDARD.TARGET, 20);
+  assert.deepEqual(
+    client.calls.map((c) => [c.name, c.args.at(-1)]),
+    [
+      ['setSubDeviceMode', 4],
+      ['setSubDeviceMode', 8],
+      ['setSubDeviceTemperature', 20],
+    ],
+  );
+  assert.equal(
+    control
+      .observe(entry, { changeOverUser: 0 })
+      .find((s) => s.device_feature_external_id === mode.external_id).state,
+    1,
+  );
+});
+
+test('failed gateway mode or missing routing metadata never sends a temperature', async (t) => {
+  for (const invalid of ['mode', 'gateway', 'rfid']) {
+    const { control, entry, client } = harness(t, { model: 'ETRV' });
+    if (invalid === 'gateway') entry.gateway = null;
+    else if (invalid === 'rfid') entry.rfid = null;
+    else
+      client.setSubDeviceMode = async () => {
+        throw new Error('gateway unavailable');
+      };
+    await assert.rejects(control.command(entry, STANDARD.TARGET, 21));
+    assert.equal(client.calls.length, 0);
+  }
+});
+
+test('failed gateway temperature cannot publish successful native target feedback', async (t) => {
+  const { control, entry, client, checks } = harness(t, { model: 'NTD' });
+  client.setSubDeviceTemperature = async () => {
+    throw new Error('temperature refused');
+  };
+  await assert.rejects(control.command(entry, STANDARD.TARGET, 21), /temperature refused/);
+  assert.equal(checks.length, 0);
+  assert.deepEqual(
+    client.calls.map((c) => c.name),
+    ['setSubDeviceMode'],
+  );
+});
 
 test('native OFF followed by the frost fallback never sends targetMode 8', async (t) => {
   const { control, entry, client, records } = harness(t);
@@ -188,7 +304,7 @@ test('effective setpoint follows comfort and eco, not the saved override', () =>
   assert.equal(effectiveTarget({ targetMode: 8, comfTemp: 21, overrideTemp: 18 }), 18);
 });
 
-test('relay switch really sends OFF and pilot-wire values are translated', async () => {
+test('relay switch sends OFF and EWS pilot wire has only the full mode selector', async () => {
   const client = fakeAxencoClient();
   const relay = describeDevice(
     fakeGladys,
@@ -200,7 +316,7 @@ test('relay switch really sends OFF and pilot-wire values are translated', async
     fakeGladys,
     axencoThermostat({ model: 'EWS', state: { deviceType: 1 } }),
   );
-  await handleSetValue(client, pilot, STANDARD.PILOT, 3);
+  await handleSetValue(client, pilot, 'axenco-mode', 'eco_1');
   assert.equal(client.calls[1].args[1], 40);
   await assert.rejects(() => handleSetValue(client, pilot, STANDARD.PILOT, 6));
 });
@@ -560,11 +676,17 @@ test('a failed persistent resume cannot let its following target wake the heater
   assert.equal(client.calls.length, 0);
 });
 
-test('shared EV30 control does not intercept the other models historical targets', (t) => {
+test('shared native control handles all temperature-regulating models but no mode-only device', (t) => {
   const { control } = harness(t);
   for (const model of ['ECTRL', 'ESTAT', 'RSS-ECTRL', 'NTD', 'ETRV']) {
     const entry = describeDevice(fakeGladys, axencoThermostat({ model }));
+    assert.equal(control.handles(entry, STANDARD.TARGET), true, model);
+    assert.equal(control.handles(entry, STANDARD.MODE), true, model);
+  }
+  for (const model of ['EWS', 'UFH']) {
+    const entry = describeDevice(fakeGladys, axencoThermostat({ model }));
     assert.equal(control.handles(entry, STANDARD.TARGET), false, model);
+    assert.equal(control.handles(entry, STANDARD.MODE), false, model);
   }
 });
 

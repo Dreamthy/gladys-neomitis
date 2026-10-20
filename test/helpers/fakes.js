@@ -19,6 +19,10 @@ export function fakeAxencoClient() {
     calls,
     setDeviceTemperature: record('setDeviceTemperature'),
     setSubDeviceTemperature: record('setSubDeviceTemperature'),
+    async setSubDeviceTarget(parents, rfid, temperature) {
+      await this.setSubDeviceMode(parents, rfid, 8);
+      await this.setSubDeviceTemperature(parents, rfid, temperature);
+    },
     setDeviceMode: record('setDeviceMode'),
     setSubDeviceMode: record('setSubDeviceMode'),
     setSubDeviceModeUfh: record('setSubDeviceModeUfh'),

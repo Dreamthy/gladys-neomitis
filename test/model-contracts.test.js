@@ -164,37 +164,37 @@ for (const profile of profiles) {
       assert.ok(requests[0].url.endsWith('/65f0000000000000000000ff/sub-devices/state'));
     assert.equal(
       entry.gladysDevice.features.some((f) => f.external_id === entry.ids.feature(STANDARD.MODE)),
-      profile.model === 'EV30',
+      Boolean(profile.temperature),
     );
   });
 }
 
-test('all six standard pilot-wire orders round-trip through their explicit Axenco equivalents', async (t) => {
+test('EWS uses its full selector for all six pilot-wire orders and has no second mode field', async (t) => {
   const entry = describeDevice(
     fakeGladys,
     rawFor(profiles.find((p) => p.model === 'EWS' && p.deviceType === 1)),
   );
   const { client, requests } = capture(t);
-  for (const [standard, code] of [
-    [0, 4],
-    [1, 3],
-    [2, 2],
-    [3, 40],
-    [4, 41],
-    [5, 1],
+  for (const [key, code] of [
+    ['standby', 4],
+    ['antifrost', 3],
+    ['eco', 2],
+    ['eco_1', 40],
+    ['eco_2', 41],
+    ['comfort', 1],
   ]) {
-    await handleSetValue(client, entry, STANDARD.PILOT, standard);
+    await handleSetValue(client, entry, FEATURE.MODE_SELECT, key);
     assert.deepEqual(requests.at(-1).body, { parameters: { targetMode: code } });
     assert.equal(
-      stateFor(buildStates(entry, { targetMode: code }), entry, STANDARD.PILOT).state,
-      standard,
+      stateFor(buildStates(entry, { targetMode: code }), entry, FEATURE.MODE_SELECT).text,
+      key,
     );
   }
-  for (const targetMode of [0, 60, 61, 6, 42]) {
+  for (const targetMode of [0, 60, 61, 6, 42, 1, 2, 3, 4, 40, 41]) {
     assert.equal(
       stateFor(buildStates(entry, { targetMode }), entry, STANDARD.PILOT),
       undefined,
-      'no fabricated six-order state for Auto, Boost or unknown codes',
+      'no retired six-order feature states are published',
     );
   }
 });

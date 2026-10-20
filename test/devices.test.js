@@ -165,7 +165,6 @@ test('an EWS fil pilote exposes its eight modes with standard six-order labels',
   // "Mode Éco, Éco-1 ou Éco-2". The MyNeomitis app menu hides those two.
   const pilot = describe_(axencoThermostat({ model: 'EWS', state: { deviceType: 1 } }));
   assert.deepEqual(featureNames(pilot), [
-    'Commande fil pilote (6 ordres)',
     'Mode actuel (compatibilité)',
     'Boost',
     'Éco',

@@ -85,11 +85,6 @@ export function createReconciler({
      * reconciler.schedule(entry, 'preset:auto', { targetMode: 0 });
      */
     schedule(entry, featureKey, asked) {
-      if (entry.profile.subDevice) {
-        // Sub-device state comes from the gateway under a shape we have never
-        // observed; guessing at it would be worse than not checking.
-        return;
-      }
       // Keyed per FEATURE, not per device: with a 30 s delay, a user clicking
       // two switches in a row would otherwise cancel the first check and we
       // would learn nothing about it.
@@ -121,7 +116,13 @@ export function createReconciler({
             if (!entry) return;
           }
           try {
-            const fresh = ((await client.getDeviceState(entry.axencoId)) || {}).state;
+            // The account device list is already used for discovery and has
+            // a known shape. Force a read for gateway devices instead of
+            // guessing the separate /sub-devices endpoint's response shape.
+            const fresh = entry.profile.subDevice
+              ? (await client.getDevices(true)).find((device) => device._id === entry.axencoId)
+                  ?.state
+              : ((await client.getDeviceState(entry.axencoId)) || {}).state;
             if (!fresh) {
               throw new Error('No device state returned for confirmation');
             }

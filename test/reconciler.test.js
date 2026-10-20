@@ -5,10 +5,16 @@ import { askedPatch, createReconciler } from '../src/gladys/reconciler.js';
 
 const DELAY = 1000;
 
-function harness({ freshState, getStateError } = {}) {
+function harness({ freshState, getStateError, devices = [] } = {}) {
   const logs = { warn: [], info: [], error: [] };
   const published = [];
+  const listReads = [];
   const client = {
+    async getDevices(force) {
+      listReads.push(force);
+      if (getStateError) throw getStateError;
+      return devices;
+    },
     async getDeviceState() {
       if (getStateError) {
         throw getStateError;
@@ -31,7 +37,7 @@ function harness({ freshState, getStateError } = {}) {
     buildStates: (entry, patch) => [{ device_feature_external_id: entry.axencoId, patch }],
     delayMs: DELAY,
   });
-  return { reconciler, logs, published };
+  return { reconciler, logs, published, listReads };
 }
 
 const mainEntry = (state = {}) => ({
@@ -138,17 +144,36 @@ test('a no-op command still publishes the truth, without a verdict', async (t) =
   assert.equal(published.length, 1);
 });
 
-test('a sub-device is never checked: its state shape is unknown', async (t) => {
+test('a sub-device is confirmed by a fresh account list and matched by its own device id', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const { reconciler, published, logs } = harness({ freshState: { targetMode: 1 } });
+  const { reconciler, published, logs, listReads } = harness({
+    devices: [
+      { _id: 'another-device', state: { targetMode: 1 } },
+      { _id: 'dev-1', state: { targetMode: 2 } },
+    ],
+  });
 
   reconciler.schedule({ ...mainEntry(), profile: { subDevice: true } }, 'preset:eco', {
     targetMode: 2,
   });
   await fire(t);
 
+  assert.deepEqual(listReads, [true]);
+  assert.equal(published.length, 1);
+  assert.equal(published[0][0].patch.targetMode, 2);
+  assert.equal(logs.info.length, 1);
+  assert.equal(logs.warn.length, 0);
+});
+
+test('missing sub-device feedback is reported as unavailable without using another device state', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { reconciler, published, logs } = harness({
+    devices: [{ _id: 'another-device', state: { targetMode: 2 } }],
+  });
+  reconciler.schedule({ ...mainEntry(), profile: { subDevice: true } }, 'mode', { targetMode: 2 });
+  await fire(t);
   assert.equal(published.length, 0);
-  assert.equal(logs.info.length + logs.warn.length, 0);
+  assert.equal(logs.error.length, 1);
 });
 
 test('a failed re-read is logged and swallowed, never thrown at the timer', async (t) => {

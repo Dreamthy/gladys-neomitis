@@ -11,7 +11,8 @@ nouvelles commandes, même si le planning Gladys continue à tourner localement.
 1. Mettre Gladys à jour, puis installer la nouvelle image de l'intégration.
 2. Ouvrir **Découverte** et utiliser **Mettre à jour** sur chaque appareil.
    Ne pas supprimer puis recréer les appareils : leurs identifiants et ceux
-   des fonctionnalités historiques sont conservés pour les scènes existantes.
+   des fonctionnalités historiques sont conservés pour les scènes existantes,
+   sauf le doublon EWS `pilot-wire-mode`, retiré comme expliqué ci-dessous.
 3. Les nouvelles fonctionnalités ne reçoivent des états qu'une fois créées.
 4. Choisir un seul responsable du planning d'une zone : Gladys ou MyNeomitis.
 
@@ -24,12 +25,13 @@ thermostat Gladys. Son identifiant historique `target-temperature` est conservé
 Les programmes fabricant, consignes par mode, capteurs, widget Neomitis et
 scènes restent utilisables sans créer de thermostat Gladys.
 
-Sur EV30, modifier la consigne pendant la veille mémorise la valeur sans
+Sur EV30, ECTRL, ESTAT, RSS-ECTRL, NTD et ETRV, modifier la consigne pendant la veille mémorise la valeur sans
 rallumer le radiateur. Pour reprendre, sélectionner **Chauffage** dans **Mode
 du radiateur**, un mode actif dans **Mode Axenco**, ou utiliser l'action
 **Appliquer une dérogation** du widget ou des scènes. Cette dernière applique
-explicitement la température et démarre la dérogation en une seule commande.
-Les autres modèles conservent leur commande de température historique.
+explicitement la température et démarre la dérogation. Les appareils principaux
+utilisent leur commande de température existante ; NTD et ETRV passent par
+leur passerelle avec deux appels successifs : mode Dérogation, puis consigne.
 
 Après un scan, utiliser **Mettre à jour** dans Découverte. Les anciens
 interrupteurs de modes déjà créés conservent leurs identifiants pour les
@@ -43,11 +45,15 @@ créent plus de champ texte supplémentaire. Un **Mode actuel** déjà créé re
 présent comme **Mode actuel (compatibilité)** pour préserver ses références.
 Les appareils sans sélecteur, comme UFH, gardent leur indication en lecture seule.
 
-## EV30 : thermostat réel dans Gladys
+## Appareils à consigne : thermostat réel dans Gladys
+
+Le mode physique et la protection arrêt/reprise sont disponibles sur **EV30,
+ECTRL, ESTAT, RSS-ECTRL, NTD et ETRV**. Cette prise en charge logicielle ne
+constitue pas une validation matérielle des cinq derniers modèles.
 
 Créer un **thermostat réel** dans **Intégrations → Thermostat** et sélectionner :
 
-| Réglage                | Fonctionnalité de l'EV30                                 |
+| Réglage                | Fonctionnalité de l'appareil                             |
 | ---------------------- | -------------------------------------------------------- |
 | Consigne               | **Température de consigne**                              |
 | Mode de fonctionnement | **Mode du radiateur**                                    |
@@ -59,7 +65,13 @@ Créer un **thermostat réel** dans **Intégrations → Thermostat** et sélecti
 changer son identifiant. C'est le mode physique Arrêt/Chauffage du radiateur.
 Il faut le sélectionner pour permettre au thermostat Gladys de mettre le
 radiateur en veille et de le reprendre ensuite. Aucun calcul d'hystérésis ou
-de TPI n'est ajouté à l'EV30 : il régule lui-même.
+de TPI n'est ajouté : ces appareils régulent eux-mêmes.
+
+Sur **NTD**, le mode indique Chauffage ou Rafraîchissement selon
+`changeOverUser`. Il permet l'arrêt et la reprise dans ce même fonctionnement,
+mais refuse une demande qui changerait la bascule de l'installation : cette
+dernière reste en lecture seule. Le mode décrit une autorisation de
+fonctionnement, pas une mesure de la résistance ou de la vanne.
 
 Le planning et les préréglages Confort/Éco/Nuit/Absence sont ceux de Gladys.
 Désactiver le programme fabricant avant de confier le planning à Gladys.
@@ -86,14 +98,17 @@ Une ancienne consigne retirée n'est pas recréée lors des scans suivants.
 
 ### Arrêt, reprise et consignes
 
-- **Arrêt** envoie l'ordre Veille Axenco déjà mesuré sur EV30.
+- **Arrêt** envoie l'ordre Veille Axenco par la route de l'appareil ou de sa
+  passerelle. Cet ordre a été mesuré sur EV30 ; les autres modèles restent à
+  confirmer sur matériel.
 - La consigne de repli écrite ensuite par Gladys est mémorisée sans envoyer
   `targetMode: 8`, ce qui préserve la veille physique.
 - L'intention d'arrêt et la consigne en attente sont enregistrées dans `/data`
   et survivent au redémarrage du conteneur. Une indisponibilité Axenco ou une
   commande ignorée reste signalée comme un échec.
-- Une reprise suivie d'une consigne est regroupée en une seule commande de
-  température. Sans nouvelle consigne, la valeur mémorisée est utilisée.
+- Une reprise suivie d'une consigne utilise une seule séquence de température
+  (un appel pour les appareils principaux, deux pour NTD/ETRV). Sans nouvelle
+  consigne, la valeur mémorisée est utilisée.
   Une nouvelle demande d'arrêt ou de mode Axenco annule la reprise en attente.
 - Pendant l'arrêt, la consigne représente la valeur mémorisée, pas une
   température actuellement appliquée au radiateur.
@@ -116,10 +131,11 @@ de commande non confirmée et les logs signalent l'écart. Le planning peut
 réessayer au passage suivant. Tant qu'une consigne reste en attente, les
 valeurs divergentes ne sont pas présentées comme des changements manuels.
 
-Les modèles `ECTRL`, `ESTAT`, `RSS-ECTRL`, `NTD` et `ETRV` conservent leurs
-commandes historiques. La protection d'arrêt et le mode standard restent
-réservés à **EV30**, dont le protocole a été mesuré. Le portage aux autres
-modèles demande une validation matérielle et des routes de passerelle.
+Les identifiants des consignes existantes restent inchangés. Sur NTD et ETRV,
+le retour de consigne utilise `targetTemp`, sans être remplacé par une ancienne
+valeur `overrideTemp`. Les températures hors des bornes annoncées restent
+refusées. Les commandes directes, le widget et les scènes utilisent le même
+contrôleur que le thermostat Gladys.
 
 ## Relais et fil pilote EWS
 
@@ -127,17 +143,17 @@ modèles demande une validation matérielle et des routes de passerelle.
   réellement les deux ordres. Elle peut servir d'actionneur à un thermostat
   virtuel avec une sonde indépendante. Le protocole de ce modèle reste hérité
   et demande une vérification sur votre installation.
-- **Fil pilote** : **Commande fil pilote (6 ordres)** expose les six ordres
-  standard Gladys, avec conversion vers les codes Axenco.
+- **Fil pilote** : le champ standard **Mode** / **Commande fil pilote (6 ordres)**
+  (`pilot-wire-mode`) est supprimé pour éviter deux sélecteurs de portée
+  différente sur le même module. **Mettre à jour** depuis Découverte applique
+  ce retrait aux appareils existants. Remplacer auparavant toute référence à
+  ce champ dans les scènes ou widgets par le sélecteur complet.
 - **Mode du module** est le sélecteur complet EWS, auparavant **Mode Axenco**.
   Il propose notamment Auto et Boost sur le fil pilote. Les libellés
   **Confort −1 °C**, **Confort −2 °C** et **Arrêt** remplacent Éco 1K, Éco 2K
   et Veille sur EWS, sans changer les codes, les valeurs de scènes ni les
-  identifiants des fonctionnalités. Les autres modèles gardent leurs libellés.
-- Auto, Boost et les codes inconnus ne sont pas représentables parmi les six
-  ordres : ce champ conserve alors son dernier ordre connu. Consulter le mode
-  du module observé dans le widget, qui signale cette limite, pour connaître
-  l'état relu. Aucun ordre standard n'est inventé pour ces modes.
+  identifiants du sélecteur et des anciens interrupteurs. Les autres modèles
+  gardent leurs libellés. Le widget utilise ce menu complet et le mode observé.
 - Le thermostat virtuel de Gladys 5.2 ne sait pas piloter directement un ordre
   fil pilote. Les interrupteurs historiques de modes ne sont pas de véritables
   Marche/Arrêt et ne doivent pas être choisis comme actionneurs binaires.
@@ -189,7 +205,7 @@ Deux commandes sont proposées selon les capacités réellement créées :
   radiateur en veille ; un planning Gladys actif peut ensuite reprendre la main.
 
 Les raccourcis Auto MyNeomitis et Arrêter/Reprendre ont été retirés du widget.
-Les contrôles standard de l'appareil et les actions de scène sont conservés.
+Les actions de scène restent disponibles ; le doublon fil pilote EWS est retiré.
 
 Par défaut, les détails cloud sont masqués lorsque tout fonctionne. Les pertes
 cloud, temps réel ou de connexion du radiateur restent visibles. Activer
@@ -205,7 +221,7 @@ Un accusé de réception n'est pas une confirmation physique.
 Actions de scène : **Choisir le mode Axenco**, **Appliquer une dérogation**,
 **Reprendre le programme MyNeomitis**, **Mettre en marche / arrêter l’appareil**.
 Les modes sont vérifiés contre le profil de l'appareil. La dernière action
-agit sur le contrôle de l'appareil (EV30 ou relais EWS), pas sur le thermostat
+agit sur le contrôle de l'appareil (les six modèles à consigne ou le relais EWS), pas sur le thermostat
 de planning créé par Gladys. Un planning encore actif peut donc reprendre la
 main ; pour l'arrêter durablement, utiliser son action générique de mode.
 Le résultat `accepted` signifie que la demande a été acceptée ; la confirmation
@@ -213,12 +229,14 @@ physique se fait ensuite.
 
 Le déclencheur **Commande non confirmée** fournit l'appareil, la fonctionnalité
 et le motif d'échec. Il peut lancer une notification. Le contrôle après
-commande intervient à 30 secondes sur les appareils principaux. « Non confirmé »
+commande intervient à 30 secondes. Les appareils principaux utilisent leur
+route de lecture individuelle ; les sous-appareils sont recherchés par leur
+identifiant dans une nouvelle lecture de la liste du compte. « Non confirmé »
 signifie que l'état attendu n'est pas retrouvé à ce moment-là ; cela ne prouve
 pas que l'ordre a été définitivement ignoré. Une répétition du même ordre
 conserve les valeurs à vérifier. Le contrôle compare
-les codes Auto `0`, `60` et `61` selon leur sens. Il n'est pas disponible sur
-les sous-appareils dont la réponse de passerelle n'a pas été vérifiée.
+les codes Auto `0`, `60` et `61` selon leur sens. Une absence dans la liste
+signale une confirmation indisponible, sans utiliser l'état d'un autre appareil.
 
 Une perte du temps réel affiche un état cloud dégradé ; les relectures REST
 continuent. Une panne REST affiche une déconnexion et un appareil injoignable,
@@ -230,6 +248,7 @@ Les commandes sont ordonnées par appareil. Une demande restée plus d'une
 seconde en attente n'est pas envoyée tardivement ; un événement d'échec est
 publié. Les écritures HTTP Axenco ont un budget de 3,5 secondes, renouvellement
 de token inclus, pour laisser du temps à l'accusé de réception Gladys. Un
+couple mode/consigne NTD ou ETRV partage ce même budget entre les deux appels. Un
 timeout ne prouve pas l'absence d'effet physique : vérifier le retour matériel.
 
 ## Développement et publication

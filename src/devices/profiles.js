@@ -11,6 +11,8 @@
 /**
  * - `subDevice`         : reached through its gateway (`parents`) + its `rfid`
  *                         rather than by its own `_id`.
+ * - `nativeThermostat`  : shared target and protected physical stop/resume;
+ *                         hardware validation is separate from software support.
  * - `targetTempKey`     : Axenco state key holding the setpoint, null when the
  *                         model has no temperature at all.
  * - `presetStateKey`    : Axenco state key holding the mode.
@@ -21,6 +23,7 @@
  *                         `changeOverUser` for NTD but never writes it).
  */
 const THERMOSTAT_MAIN = {
+  nativeThermostat: true,
   subDevice: false,
   targetTempKey: 'overrideTemp',
   presetStateKey: 'targetMode',
@@ -29,6 +32,7 @@ const THERMOSTAT_MAIN = {
 };
 
 const THERMOSTAT_SUB = {
+  nativeThermostat: true,
   subDevice: true,
   targetTempKey: 'targetTemp',
   presetStateKey: 'targetMode',

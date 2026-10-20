@@ -34,6 +34,10 @@ l'installer. Aucun tag de version officielle ni `latest` n'est mis à jour.
   une zone de thermostat Gladys.
 - Sur un seul EV30, sélectionner **Mode du radiateur** et
   **Température de consigne**, puis tester une consigne dans ses bornes.
+- Les mêmes fonctions sont proposées sur ECTRL, ESTAT, RSS-ECTRL, NTD et
+  ETRV. Leurs propriétaires doivent confirmer arrêt, reprise et consigne sur
+  matériel avant de confier le chauffage à un planning. Sur NTD, vérifier le
+  mode correspondant à `changeOverUser` ; une demande de bascule est refusée.
 - Si l'ancienne **Consigne thermostat Gladys** existe, vérifier sa compatibilité
   puis sélectionner la consigne commune dans le thermostat existant.
 - Passer en Arrêt, vérifier physiquement la veille, puis vérifier que la
@@ -47,11 +51,10 @@ l'installer. Aucun tag de version officielle ni `latest` n'est mis à jour.
   non confirmée. Un accusé de réception ne prouve pas l'exécution matérielle.
 - Vérifier le relais EWS si vous en possédez un. Le fil pilote ne peut pas
   servir directement d'actionneur au thermostat virtuel Gladys.
-- Mettre à jour l'EWS depuis Découverte : vérifier les noms **Mode du module**
-  et **Commande fil pilote (6 ordres)** sans suppression des fonctionnalités.
-  Vérifier Confort −1 °C, Confort −2 °C et Arrêt depuis les deux commandes.
-  En Auto ou Boost, le widget doit afficher le mode observé et signaler que
-  la commande à six ordres conserve son dernier ordre connu.
+- Mettre à jour l'EWS depuis Découverte : **Mode du module** reste disponible
+  et le champ **Mode** / **Commande fil pilote (6 ordres)** disparaît. Remplacer
+  ses références éventuelles avant la mise à jour. Vérifier Confort −1 °C,
+  Confort −2 °C, Arrêt, Auto et Boost depuis le sélecteur complet.
 - Vérifier qu'un nouvel appareil à sélecteur ne crée ni texte **Mode actuel**,
   ni ancien capteur fenêtre. Sur un appareil existant, les fonctionnalités
   marquées **compatibilité** doivent conserver leurs identifiants et valeurs.

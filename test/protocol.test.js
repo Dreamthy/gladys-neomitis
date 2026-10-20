@@ -11,6 +11,45 @@ const response = (status, data = {}) => ({
 });
 const client = () => new AxencoClient({ logger: createLogger({ level: 'silent' }) });
 
+test('gateway target uses the two documented payloads and one shared timeout budget', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1000 });
+  const timeouts = [];
+  const sent = [];
+  t.mock.method(AbortSignal, 'timeout', (ms) => {
+    timeouts.push(ms);
+    return new AbortController().signal;
+  });
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    sent.push({ url, body: JSON.parse(options.body) });
+    t.mock.timers.tick(2000);
+    return response(200);
+  });
+  await client().setSubDeviceTarget({ gateway: 'gateway-1' }, 'rfid-1', 20.5);
+  assert.deepEqual(timeouts, [3500, 1500]);
+  assert.deepEqual(sent, [
+    {
+      url: 'https://user-ep.imhotepcreation.com/v1/devices/gateway-1/sub-devices/state',
+      body: { parameters: { 'rfid-1': { targetMode: 8 } } },
+    },
+    {
+      url: 'https://user-ep.imhotepcreation.com/v1/devices/gateway-1/sub-devices/state',
+      body: { parameters: { 'rfid-1': { targetTemp: 20.5 } } },
+    },
+  ]);
+});
+
+test('an exhausted gateway mode budget cannot send a late target', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1000 });
+  let requests = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    requests++;
+    t.mock.timers.tick(3501);
+    return response(200);
+  });
+  await assert.rejects(client().setSubDeviceTarget(',gateway-1,', 'rfid-1', 21), /timed out/);
+  assert.equal(requests, 1);
+});
+
 test('EV30 writes retain the captured temperature and standby payloads', async (t) => {
   const sent = [];
   t.mock.method(globalThis, 'fetch', async (url, options) => {

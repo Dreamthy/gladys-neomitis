@@ -104,7 +104,7 @@ export async function createIntegration(options = {}) {
 
   function confirmedStates(entry, patch) {
     Object.assign(entry.observedState, patch);
-    // The EV30 shared target has a single publisher. Raw overrideTemp can be
+    // Shared thermostat targets have a single publisher. Raw overrideTemp can be
     // stale in Comfort/Auto, or would overwrite a parked/awaiting target.
     const states = buildStates(entry, patch).filter(
       (state) =>
@@ -164,7 +164,7 @@ export async function createIntegration(options = {}) {
           states = await thermostat.command(
             entry,
             STANDARD.TARGET,
-            effectiveTarget(entry.observedState),
+            effectiveTarget(entry.observedState, entry.profile),
             { resume: true },
           );
         } else {

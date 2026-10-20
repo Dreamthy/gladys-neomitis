@@ -93,11 +93,14 @@ les anciens interrupteurs déjà créés restent disponibles pour les scènes.
 
 **Version 1.1 : Gladys 5.2 minimum, SDK 0.15.** Les commandes standard et le
 widget complètent les interrupteurs historiques, dont les identifiants sont
-conservés. EV30 utilise une seule **Température de consigne** pour le pilotage
+conservés. EV30, ECTRL, ESTAT, RSS-ECTRL, NTD et ETRV utilisent une seule **Température de consigne** pour le pilotage
 direct et le thermostat natif, avec **Mode du radiateur** pour la veille
 physique. La consigne reste mémorisée pendant l'arrêt ; une dérogation explicite
 peut reprendre le chauffage. L'ancien doublon, s'il existe, reste un alias
 de compatibilité pour préserver les thermostats et scènes déjà configurés.
+La validation matérielle des cinq modèles autres qu'EV30 reste à effectuer.
+L'EWS fil pilote utilise son sélecteur complet **Mode du module** ; l'ancien
+champ `pilot-wire-mode` est retiré lors de la mise à jour depuis Découverte.
 Les commandes historiques gardent leur retour optimiste et leur relecture à
 30 secondes. Lire le [guide de migration](docs/upgrade.fr.md) avant de choisir
 les fonctionnalités du thermostat et son contact fenêtre.
