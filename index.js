@@ -21,7 +21,8 @@ import { createPublisher } from './src/gladys/publisher.js';
 import { askedPatch, createReconciler } from './src/gladys/reconciler.js';
 import { createControlStore } from './src/gladys/control-store.js';
 import { createDeviceQueue } from './src/gladys/queue.js';
-import { createThermostatControl } from './src/gladys/thermostat.js';
+import { createThermostatControl, effectiveTarget } from './src/gladys/thermostat.js';
+import { STANDARD, nativeThermostat } from './src/devices/standard.js';
 import { registerSurfaces } from './src/gladys/surfaces.js';
 import { fileURLToPath } from 'node:url';
 import {
@@ -103,7 +104,16 @@ export async function createIntegration(options = {}) {
 
   function confirmedStates(entry, patch) {
     Object.assign(entry.observedState, patch);
-    return [...buildStates(entry, patch), ...thermostat.observe(entry, patch)];
+    // The EV30 shared target has a single publisher. Raw overrideTemp can be
+    // stale in Comfort/Auto, or would overwrite a parked/awaiting target.
+    const states = buildStates(entry, patch).filter(
+      (state) =>
+        !nativeThermostat(entry) ||
+        ![STANDARD.MODE, STANDARD.TARGET].some(
+          (key) => state.device_feature_external_id === entry.ids.feature(key),
+        ),
+    );
+    return [...states, ...thermostat.observe(entry, patch)];
   }
 
   async function commandFailure(entry, key, error) {
@@ -128,7 +138,7 @@ export async function createIntegration(options = {}) {
     return entry;
   }
 
-  async function command(externalId, featureKey, value) {
+  async function command(externalId, featureKey, value, options) {
     if (closing) throw new Error('Integration is stopping');
     const selectedEntry = findCreatedEntry(externalId);
     return enqueue(selectedEntry.axencoId, async () => {
@@ -144,12 +154,28 @@ export async function createIntegration(options = {}) {
       }
       try {
         let states;
-        if (thermostat.handles(featureKey)) {
-          states = await thermostat.command(entry, featureKey, value);
+        if (thermostat.handles(entry, featureKey)) {
+          states = await thermostat.command(entry, featureKey, value, options);
+        } else if (
+          nativeThermostat(entry) &&
+          featureKey === 'axenco-mode' &&
+          value === 'setpoint'
+        ) {
+          states = await thermostat.command(
+            entry,
+            STANDARD.TARGET,
+            effectiveTarget(entry.observedState),
+            { resume: true },
+          );
         } else {
           const before = { ...entry.state };
           states = await handleSetValue(axenco, entry, featureKey, value);
           if (!closing) reconciler.schedule(entry, featureKey, askedPatch(before, entry.state));
+          if (
+            nativeThermostat(entry) &&
+            (featureKey === 'axenco-mode' || (featureKey.startsWith('preset:') && value === 1))
+          )
+            await thermostat.directModeChanged(entry);
         }
         await publisher.publishStates(states, { force: true });
         await gladys.requestWidgetRefresh('heater');
@@ -196,6 +222,9 @@ export async function createIntegration(options = {}) {
     if (!entry) {
       return;
     }
+    entry.legacyThermostatTarget = device.features.some(
+      (feature) => feature.external_id === entry.ids.feature(STANDARD.LEGACY_TARGET),
+    );
     logger.info(`Device created in Gladys -> seeding ${entry.model} with its known state`);
     publisher.forget(device.external_id);
     await publisher.publishStates(confirmedStates(entry, entry.observedState), { force: true });
@@ -208,8 +237,12 @@ export async function createIntegration(options = {}) {
   gladys.onDeviceUpdated(async (device) => {
     publisher.forget(device.external_id);
     const entry = entryByDeviceExternalId.get(device.external_id);
-    if (entry)
+    if (entry) {
+      entry.legacyThermostatTarget = device.features.some(
+        (feature) => feature.external_id === entry.ids.feature(STANDARD.LEGACY_TARGET),
+      );
       await publisher.publishStates(confirmedStates(entry, entry.observedState), { force: true });
+    }
   });
   gladys.onDeviceDeleted((device) => {
     publisher.forget(device.external_id);

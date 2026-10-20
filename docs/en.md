@@ -60,12 +60,14 @@ It works independently: creating a Gladys thermostat is optional.
 - **Current temperature** — sensor, in °C, with history (charts).
 - **Target temperature** — writable setpoint. Its bounds come from the device
   itself (`comfLimitMin` / `comfLimitMax`) rather than a hard-coded 7–30 °C: a
-  heater limited to 16–21 °C really shows 16–21 °C.
+  heater limited to 16–21 °C really shows 16–21 °C. On EV30 it follows the
+  effective target of the active mode. In standby it remembers the value
+  without waking the heater; resume with a mode or an explicit override.
 - **Mode Axenco** — one selector for the modes supported by the model:
   Comfort, Eco, Auto, Boost, Standby, etc. It works without a Gladys thermostat.
   On temperature-regulating devices, **Dérogation (consigne actuelle)** applies
   the last observed Axenco target. To choose another temperature, change
-  **Température cible** or use the widget.
+  **Température de consigne** or use the widget.
 - **Current mode** — read-only text: "Confort", "Éco", "Boost"… In Auto it
   says which side of the schedule is running: "Auto (Confort)" or
   "Auto (Éco)". The selector stays on "Auto".
@@ -74,8 +76,8 @@ It works independently: creating a Gladys thermostat is optional.
   existing scenes. New devices use the selector instead. Auto is a mode like any other
   (`targetMode: 0`): picking it leaves the manual modes, and vice versa.
 - **Consigne Confort / Consigne Éco / Consigne Hors gel** — the temperatures
-  the modes use, writable. Not to be confused with the target temperature
-  above, which is the one-off derogation. Neither `pyaxencoapi` nor the Home
+  the modes use, writable. These are distinct from the shared target; writing
+  that target while running starts an override. Neither `pyaxencoapi` nor the Home
   Assistant integration exposes them.
   Restricted to devices that actually **regulate** a temperature. An `EWS` does
   report the three fields but refuses to write them: it drives a fil pilote and
@@ -108,7 +110,8 @@ temperature; that first call is a no-op, measured.
 ## Standard modes and legacy compatibility
 
 Version 1.1 adds a real ON/OFF control for EWS relays, a standard pilot-wire
-selector and two EV30 controls dedicated to the native thermostat. Existing
+selector and an EV30 **Mode du radiateur** with a target shared by direct
+controls and the native thermostat. Existing
 preset switches retain their ids and semantics: switching one OFF is not a
 hardware stop. Supported choices are declared through `supported_options`.
 The Neomitis widget also offers an Axenco mode form. Read the

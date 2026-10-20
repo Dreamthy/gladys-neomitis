@@ -92,8 +92,11 @@ remain available for existing scenes.
 
 **Version 1.1 requires Gladys 5.2 and SDK 0.15.** Standard controls and a
 summary widget complement the legacy switches, whose identifiers are retained.
-The EV30 native thermostat controls keep OFF effective across the frost
-fallback and publish observed temperatures. Legacy commands keep their
+EV30 uses one **Température de consigne** shared by direct controls and the
+native thermostat, plus **Mode du radiateur** for physical standby. A target
+written while stopped is remembered; an explicit override can resume heating.
+An already-created duplicate remains a compatibility alias to preserve
+existing thermostat and scene references. Legacy commands keep their
 optimistic feedback and 30-second reconciliation. Read the
 [migration guide](docs/upgrade.en.md) before selecting thermostat features or
 selecting the thermostat window contact. The [development checklist](docs/development-plan.md)

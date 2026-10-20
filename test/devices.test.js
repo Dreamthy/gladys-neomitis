@@ -104,10 +104,9 @@ test('a thermostat exposes temperatures, the mode and the selectable presets', (
   // reported state produced by writing a temperature.
   const entry = describe_(axencoThermostat());
   assert.deepEqual(featureNames(entry), [
-    'Mode thermostat Gladys',
-    'Consigne thermostat Gladys',
+    'Mode du radiateur',
     'Température actuelle',
-    'Température cible',
+    'Température de consigne',
     'Mode actuel',
     'Boost',
     'Éco',
@@ -121,12 +120,14 @@ test('a thermostat exposes temperatures, the mode and the selectable presets', (
 });
 
 test('the setpoint bounds come from the device, with a 7-30 fallback', () => {
-  const bounded = describe_(axencoThermostat()).gladysDevice.features[1];
+  const bounded = describe_(axencoThermostat()).gladysDevice.features.find((f) =>
+    f.external_id.endsWith(':target-temperature'),
+  );
   assert.deepEqual([bounded.min, bounded.max], [16, 21]);
 
   const unbounded = describe_(
     axencoThermostat({ state: { currentTemp: 19, overrideTemp: 20, targetMode: 1 } }),
-  ).gladysDevice.features[1];
+  ).gladysDevice.features.find((f) => f.external_id.endsWith(':target-temperature'));
   assert.deepEqual([unbounded.min, unbounded.max], [7, 30]);
 });
 

@@ -9,7 +9,7 @@ Les détails d'utilisation sont dans le [guide de migration](upgrade.fr.md).
 - [x] Passer au SDK 0.15, aligner le manifeste et annoncer Gladys 5.2 minimum.
 - [x] Utiliser la publication ordonnée et dédupliquée du SDK, avec renvoi périodique des valeurs fraîchement relues et remise à zéro du cache lors des événements de création, modification et suppression.
 - [x] Distinguer la panne cloud de la perte du temps réel, et rétablir les indicateurs après récupération.
-- [x] Ajouter le couple mode/consigne du thermostat réel pour EV30, en conservant les identifiants et commandes historiques.
+- [x] Utiliser une consigne commune et un mode physique pour EV30 ; conserver les identifiants historiques et l'ancienne consigne comme alias uniquement si elle existe déjà.
 - [x] Empêcher la consigne de repli écrite après Arrêt de rallumer l'EV30 ; mémoriser l'intention d'arrêt dans le volume persistant.
 - [x] Regrouper reprise et nouvelle consigne ; publier les consignes natives confirmées par le matériel.
 - [x] Ajouter un véritable interrupteur Marche/Arrêt pour EWS relais et traduire les six ordres standard du fil pilote EWS.

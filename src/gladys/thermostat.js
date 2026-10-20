@@ -10,7 +10,7 @@ export function effectiveTarget(state) {
   return Number.isFinite(value) ? value : (state.overrideTemp ?? state.targetTemp);
 }
 
-/** Native controls use separate ids to preserve the existing Axenco scenes. */
+/** One physical mode and one shared setpoint, also serving the Gladys scheduler. */
 export function createThermostatControl({
   client,
   store,
@@ -24,43 +24,76 @@ export function createThermostatControl({
   const control = (entry) => {
     if (!controls.has(entry.axencoId)) {
       const saved = store.get(entry.axencoId) || {};
+      const observed = entry.observedState || entry.state;
+      const physicalStop = observed.targetMode === PRESETS.standby.code;
+      // A stale saved running intent must not override physical standby after
+      // a restart. A saved stop still protects against delayed cloud feedback.
+      const stopped = saved.stopped === true || physicalStop;
       controls.set(entry.axencoId, {
-        stopped:
-          saved.stopped ?? (entry.observedState || entry.state).targetMode === PRESETS.standby.code,
-        target: saved.target ?? effectiveTarget(entry.observedState || entry.state),
+        stopped,
+        // A persisted intent can precede the cloud feedback, including at restart.
+        pendingMode: stopped && !physicalStop ? PRESETS.standby.code : null,
+        target: saved.stopped
+          ? (saved.target ?? effectiveTarget(observed))
+          : effectiveTarget(observed),
         expected: null,
         timer: null,
+        resumeRevision: 0,
       });
     }
     return controls.get(entry.axencoId);
   };
   const persist = (entry, c) => store.set(entry.axencoId, { stopped: c.stopped, target: c.target });
+  const targetStates = (entry, target) =>
+    [STANDARD.TARGET, ...(entry.legacyThermostatTarget ? [STANDARD.LEGACY_TARGET] : [])].map(
+      (key) => ({ device_feature_external_id: entry.ids.feature(key), state: target }),
+    );
+  const cancelResume = (c) => {
+    clearTimeout(c.timer);
+    c.timer = null;
+    c.resumeRevision += 1;
+  };
+  async function resume(entry, c) {
+    c.stopped = false;
+    c.pendingMode = PRESETS.setpoint.code;
+    try {
+      await persist(entry, c);
+    } catch (error) {
+      c.stopped = true;
+      c.pendingMode = PRESETS.standby.code;
+      throw error;
+    }
+  }
   async function writeTarget(entry, value) {
     const c = control(entry);
     c.expected = value;
+    c.pendingMode = PRESETS.setpoint.code;
     try {
       await client.setDeviceTemperature(entry.axencoId, value);
       reconcile(entry, STANDARD.TARGET, { overrideTemp: value, targetMode: PRESETS.setpoint.code });
     } catch (error) {
       c.expected = null;
+      c.pendingMode = null;
       throw error;
     }
   }
   return {
-    handles: (key) => [STANDARD.MODE, STANDARD.TARGET].includes(key),
-    async command(entry, key, value) {
+    handles: (entry, key) =>
+      nativeThermostat(entry) &&
+      [STANDARD.MODE, STANDARD.TARGET, STANDARD.LEGACY_TARGET].includes(key),
+    async command(entry, key, value, { resume: explicitResume = false } = {}) {
       if (!nativeThermostat(entry))
         throw new Error('Native thermostat control is verified on EV30 only');
-      if (![STANDARD.MODE, STANDARD.TARGET].includes(key))
+      if (![STANDARD.MODE, STANDARD.TARGET, STANDARD.LEGACY_TARGET].includes(key))
         throw new Error('Unknown thermostat control');
       if (key === STANDARD.MODE) binary(value);
       else validateTemperature(entry, STANDARD.TARGET, value);
       const c = control(entry);
-      clearTimeout(c.timer);
-      c.timer = null;
+      cancelResume(c);
       if (key === STANDARD.MODE) {
-        c.stopped = value === 0;
-        if (c.stopped) {
+        if (value === 0) {
+          c.stopped = true;
+          c.pendingMode = PRESETS.standby.code;
           let storageError;
           try {
             await persist(entry, c);
@@ -72,19 +105,21 @@ export function createThermostatControl({
           reconcile(entry, STANDARD.MODE, { targetMode: PRESETS.standby.code });
           if (storageError) throw storageError;
         } else {
-          try {
-            await persist(entry, c);
-          } catch (error) {
-            c.stopped = true;
-            throw error;
-          }
+          await resume(entry, c);
           // Gladys writes mode, THEN target: combine wake-up and setpoint into
           // one captured Axenco payload instead of two easily dropped orders.
+          const revision = c.resumeRevision;
           c.timer = setTimeout(() => {
             c.timer = null;
             enqueue(entry.axencoId, async () => {
               const current = getEntry(entry.axencoId);
-              if (!current || c.stopped || controls.get(entry.axencoId) !== c) return;
+              if (
+                !current ||
+                c.stopped ||
+                c.resumeRevision !== revision ||
+                controls.get(entry.axencoId) !== c
+              )
+                return;
               await writeTarget(current, validateTemperature(current, STANDARD.TARGET, c.target));
             }).catch((error) => failure(entry, STANDARD.MODE, error));
           }, resumeDelayMs);
@@ -92,14 +127,28 @@ export function createThermostatControl({
         return [];
       }
       const target = validateTemperature(entry, STANDARD.TARGET, value);
+      if (explicitResume) await resume(entry, c);
       if (c.stopped) {
         // OFF is followed by a frost fallback. Park it without targetMode=8.
         c.target = target;
         await persist(entry, c);
-        return [{ device_feature_external_id: entry.ids.feature(STANDARD.TARGET), state: target }];
+        return targetStates(entry, target);
       }
       await writeTarget(entry, target);
       return []; // HTTP 200 is not temperature feedback.
+    },
+    async directModeChanged(entry) {
+      if (!nativeThermostat(entry)) return;
+      const c = control(entry);
+      cancelResume(c);
+      c.expected = null;
+      c.pendingMode = entry.state.targetMode;
+      c.stopped = entry.state.targetMode === PRESETS.standby.code;
+      // A manufacturer mode is an explicit user command too. It must release
+      // a previous stop, or subsequent shared setpoints would remain parked.
+      const target = effectiveTarget(entry.state);
+      if (Number.isFinite(target)) c.target = target;
+      await persist(entry, c);
     },
     observe(entry, patch) {
       if (!nativeThermostat(entry)) return [];
@@ -107,25 +156,33 @@ export function createThermostatControl({
       Object.assign(observed, patch);
       const c = control(entry);
       const states = [];
-      if (presetKeyFromCode(entry.presetKeys, patch.targetMode))
+      let stopChanged = false;
+      const mode = presetKeyFromCode(entry.presetKeys, patch.targetMode);
+      if (mode) {
+        const expectedMode = presetKeyFromCode(entry.presetKeys, c.pendingMode);
+        if (c.pendingMode === null || mode === expectedMode) {
+          const stopped = patch.targetMode === PRESETS.standby.code;
+          stopChanged = stopped !== c.stopped;
+          c.stopped = stopped;
+          c.pendingMode = null;
+        }
         states.push({
           device_feature_external_id: entry.ids.feature(STANDARD.MODE),
           state: patch.targetMode === PRESETS.standby.code ? 0 : 1,
         });
+      }
       const target = effectiveTarget(observed);
       if (c.stopped) {
-        if (Number.isFinite(c.target))
-          states.push({
-            device_feature_external_id: entry.ids.feature(STANDARD.TARGET),
-            state: c.target,
-          });
+        if (Number.isFinite(c.target)) states.push(...targetStates(entry, c.target));
       } else if (Number.isFinite(target) && (c.expected === null || target === c.expected)) {
         c.target = target;
         c.expected = null;
-        states.push({
-          device_feature_external_id: entry.ids.feature(STANDARD.TARGET),
-          state: target,
-        });
+        states.push(...targetStates(entry, target));
+      }
+      if (stopChanged) {
+        persist(entry, c).catch((error) =>
+          Promise.resolve(failure(entry, STANDARD.MODE, error)).catch(() => {}),
+        );
       }
       // A refused command must not look like a human turning the dial. Retain
       // the last confirmed value until the pending target is observed; the

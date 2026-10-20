@@ -1,7 +1,9 @@
 // Gladys values are not Axenco values. Keep the translation explicit.
 export const STANDARD = {
   MODE: 'thermostat-mode',
-  TARGET: 'thermostat-temperature',
+  TARGET: 'target-temperature',
+  // Compatibility only: retained in discovery solely when already created.
+  LEGACY_TARGET: 'thermostat-temperature',
   RELAY: 'power',
   PILOT: 'pilot-wire-mode',
   WINDOW: 'window-contact',

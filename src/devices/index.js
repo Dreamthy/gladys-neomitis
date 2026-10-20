@@ -54,6 +54,11 @@ export function describeDevice(gladys, axencoDevice) {
   const legacyPresetKeys = selectableKeys.filter((key) =>
     created?.features.some((feature) => feature.external_id === ids.feature(presetFeatureKey(key))),
   );
+  const legacyThermostatTarget = Boolean(
+    created?.features.some(
+      (feature) => feature.external_id === ids.feature(STANDARD.LEGACY_TARGET),
+    ),
+  );
   const modeKeys = presetKeys.filter((key) => key !== 'setpoint' || profile.targetTempKey);
   const state = { ...(axencoDevice.state || {}) };
   const gateway = profile.subDevice ? extractGatewayId(axencoDevice.parents) : null;
@@ -79,6 +84,7 @@ export function describeDevice(gladys, axencoDevice) {
     rfid: axencoDevice.rfid,
     state,
     observedState: { ...state },
+    legacyThermostatTarget,
     connected: Boolean(axencoDevice.connected),
     gladysDevice: {
       name: axencoDevice.name || axencoDevice._id,
@@ -91,6 +97,7 @@ export function describeDevice(gladys, axencoDevice) {
         presetKeys: selectableKeys,
         modeKeys,
         legacyPresetKeys,
+        legacyThermostatTarget,
         state,
         model: axencoDevice.model,
       }),

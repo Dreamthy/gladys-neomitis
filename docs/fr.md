@@ -59,14 +59,16 @@ Un appareil Axenco devient **un appareil Gladys portant plusieurs fonctionnalit�
 Il fonctionne de manière autonome : créer un thermostat Gladys est facultatif.
 
 - **Température actuelle** — capteur, en °C, historisée (graphiques).
-- **Température cible** — consigne réglable. Ses bornes viennent de l'appareil
+- **Température de consigne** — consigne réglable. Ses bornes viennent de l'appareil
   lui-même (`comfLimitMin` / `comfLimitMax`), pas d'un 7–30 °C figé : un
-  radiateur limité à 16–21 °C affichera bien 16–21 °C.
+  radiateur limité à 16–21 °C affichera bien 16–21 °C. Sur EV30, elle suit la
+  consigne effective du mode en cours. En veille, elle mémorise la valeur sans
+  réveiller le radiateur : reprendre par le mode ou une dérogation explicite.
 - **Mode Axenco** — sélecteur unique des modes propres au modèle : Confort,
   Éco, Auto, Boost, Veille, etc. Il fonctionne sans thermostat Gladys.
   L'option **Dérogation (consigne actuelle)**, sur les appareils régulant une
   température, réutilise la dernière consigne Axenco observée. Pour choisir une
-  autre température, régler **Température cible** ou utiliser le widget.
+  autre température, régler **Température de consigne** ou utiliser le widget.
 - **Mode actuel** — texte en lecture seule : « Confort », « Éco », « Boost »…
   En Auto, il précise le côté du programme en cours : « Auto (Confort) » ou
   « Auto (Éco) ». Le sélecteur reste sur « Auto ».
@@ -76,8 +78,8 @@ Il fonctionne de manière autonome : créer un thermostat Gladys est facultatif.
   utilisent le sélecteur à leur place. Auto est un mode comme les autres
   (`targetMode: 0`) : le sélectionner sort des modes manuels, et inversement.
 - **Consigne Confort / Consigne Éco / Consigne Hors gel** — les températures
-  que les modes utilisent, réglables. À ne pas confondre avec la Température
-  cible ci-dessus, qui est la dérogation ponctuelle. Ni `pyaxencoapi` ni
+  que les modes utilisent, réglables. Elles restent distinctes de la consigne
+  commune ; modifier cette dernière en fonctionnement lance une dérogation. Ni `pyaxencoapi` ni
   l'intégration Home Assistant ne les exposent.
   Réservées aux appareils qui **régulent** une température. Un `EWS` rapporte
   bien ces trois champs, mais les refuse en écriture : il pilote un fil pilote
@@ -100,7 +102,7 @@ Axenco et éteint les autres dans la foulée. Les **éteindre** directement ne
 fait rien — un appareil Axenco est toujours dans un mode, il n'existe pas de
 « aucun mode » à envoyer ; l'interrupteur revient donc à son état réel.
 
-Régler la **température cible** crée une **dérogation** : une consigne
+En fonctionnement, régler la **température de consigne** crée une **dérogation** : une consigne
 différente de celle paramétrée pour le mode en cours. L'intégration envoie le
 même appel que l'application officielle, `targetTemp` + `overrideTemp` +
 `targetMode: 8` d'un seul coup. `climate.py` écrit le mode d'abord puis la
@@ -109,7 +111,8 @@ température ; ce premier appel est sans effet, mesuré.
 ## Modes standard et compatibilité historique
 
 Depuis la version 1.1, le relais EWS expose un vrai Marche/Arrêt, le fil pilote
-un sélecteur standard, et l'EV30 deux commandes dédiées au thermostat natif.
+un sélecteur standard, et l'EV30 un **Mode du radiateur** avec une consigne
+commune au pilotage direct et au thermostat Gladys.
 Les anciens interrupteurs de modes restent disponibles avec les mêmes ids et
 le même comportement : leur extinction ne transmet pas un ordre d'arrêt.
 Les options par appareil sont déclarées avec `supported_options`. Le widget
@@ -168,8 +171,8 @@ notifications qu'aux conditions.
   Le planning du thermostat natif Gladys est une alternative distincte. Le mode
   « Auto » suit ce programme.
 - **Les commandes historiques publient de manière optimiste.** Leurs valeurs
-  demandées sont corrigées par les observations suivantes. La nouvelle consigne
-  native EV30 utilise les retours confirmés du matériel ; voir le guide de
+  demandées sont corrigées par les observations suivantes. La consigne
+  commune EV30 utilise les retours confirmés du matériel ; voir le guide de
   migration.
 
 ## État de vérification par modèle

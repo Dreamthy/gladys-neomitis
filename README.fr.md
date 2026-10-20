@@ -93,8 +93,11 @@ les anciens interrupteurs déjà créés restent disponibles pour les scènes.
 
 **Version 1.1 : Gladys 5.2 minimum, SDK 0.15.** Les commandes standard et le
 widget complètent les interrupteurs historiques, dont les identifiants sont
-conservés. Le contrôle EV30 pour le thermostat natif protège Arrêt contre
-l'écriture de la consigne de repli et publie les températures observées.
+conservés. EV30 utilise une seule **Température de consigne** pour le pilotage
+direct et le thermostat natif, avec **Mode du radiateur** pour la veille
+physique. La consigne reste mémorisée pendant l'arrêt ; une dérogation explicite
+peut reprendre le chauffage. L'ancien doublon, s'il existe, reste un alias
+de compatibilité pour préserver les thermostats et scènes déjà configurés.
 Les commandes historiques gardent leur retour optimiste et leur relecture à
 30 secondes. Lire le [guide de migration](docs/upgrade.fr.md) avant de choisir
 les fonctionnalités du thermostat et son contact fenêtre.

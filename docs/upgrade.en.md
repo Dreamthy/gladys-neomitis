@@ -14,63 +14,83 @@ published after their features have been created by the user.
 ## Direct control without a Gladys thermostat
 
 A Gladys thermostat is optional for each device. **Mode Axenco** selects the
-manufacturer modes directly; **Température cible** applies an override.
-Manufacturer schedules, per-mode setpoints, sensors, the Neomitis widget and
-scene actions remain usable without creating a Gladys thermostat.
+manufacturer modes. **Température de consigne** is the shared target for direct
+controls, scenes and Gladys's thermostat. Its historical `target-temperature`
+identifier is retained. Manufacturer programmes, per-mode setpoints, sensors,
+the Neomitis widget and scene actions remain available independently.
 
-Scan and choose **Update** in Discovery to add the selector to an existing
-device. Legacy mode switches retain their identifiers for existing scenes;
-newly created devices use the selector without those switches.
+On EV30, changing this target in standby remembers it without waking the
+heater. Resume using **Chauffage** on **Mode du radiateur**, an active Axenco
+mode, or the widget/scene action **Apply an override**. This explicit override
+starts heating with the requested temperature in one captured Axenco command.
+Other models retain their historical temperature command behaviour.
 
-**Dérogation (consigne actuelle)** reuses the last observed Axenco target,
-with the same range validation as the existing temperature command. To use
-another value, change **Température cible**. Auto codes `0`, `60` and `61`
-share one Auto option; **Mode actuel** still distinguishes Auto Comfort/Eco
-and reports unknown codes. Unknown codes are never offered as commands.
+Scan and choose **Update** in Discovery. Already-created mode switches retain
+their identifiers for existing scenes; new devices use the selector alone.
+**Dérogation (consigne actuelle)** applies the last observed Axenco target;
+on EV30 this is the effective target for its current mode. Auto codes `0`, `60`
+and `61` share one Auto option; **Mode actuel** distinguishes Auto Comfort/Eco
+and reports unknown codes.
 
 ## EV30: real thermostat
 
 Create a **real thermostat** in Gladys's Thermostat integration. Select
-**Consigne thermostat Gladys** as its target and **Mode thermostat Gladys** as
-its operating mode. Select **Température actuelle** for the room temperature.
-Leave the heating-state input empty: no hardware heating indication has been
-verified. These two new controls are a pair; selecting the legacy
-**Température cible** does not provide the stop protection below.
+**Température de consigne** as its target, **Mode du radiateur** as its operating
+mode and **Température actuelle** for room temperature. Leave heating state
+empty: no hardware heating indication has been verified.
+
+**Mode du radiateur** is the renamed **Mode thermostat Gladys**, retaining its
+identifier. It represents physical OFF/HEATING. Configure it so Gladys can
+both put the heater into standby and resume it. The EV30 regulates itself;
+no second hysteresis/TPI loop is added.
 
 Disable the manufacturer's programme before using a Gladys schedule.
-**Gladys Schedule** and **MyNeomitis Auto** are separate programmes. For a zone
-scheduled by Gladys, scenes should target the preset/mode/target of the
-thermostat created by Gladys, not the direct Axenco commands. The EV30 still
-regulates itself; no second hysteresis/TPI loop is added.
+**Gladys Schedule** and **MyNeomitis Auto** are separate programmes. To keep a
+scheduled zone stopped, stop the Gladys scheduling thermostat: an active
+schedule may otherwise resume control of the heater.
 
-OFF sends the measured Axenco standby command. The frost fallback Gladys writes
-afterwards is parked without sending `targetMode: 8`, which would wake the
-heater. Stop intent and the parked target are persisted in `/data` across
-container restarts. They cannot guarantee a physical stop while Axenco is down
-or the heater ignores an order. Resume and its following target are combined
-into one temperature command; resume alone restores the remembered target.
-A subsequent OFF cancels a resume still waiting to be sent.
+### Existing duplicate targets
 
-While stopped, the new target is a parked resume value, not a temperature
-currently applied to the hardware. The legacy temperature feature remains
-available for Axenco diagnostics. While running, only observed temperatures
-are published on the new native target: HTTP 200 is not confirmation.
+New devices no longer create **Consigne thermostat Gladys**. If already
+created, it is retained as **Consigne (compatibilité)** with the same
+`thermostat-temperature` identifier and history. It is a synchronized alias
+of the shared target: both commands and observed states use the same logic.
 
-Device-reported bounds are retained and the EV30 control declares a 0.5 °C
-step. A device advertising 16–21 °C cannot promise a numeric frost target of
-7 °C: Gladys clamps it to 16 °C. OFF still sends standby. Hardware measurements
-are required before widening the override bounds; no unverified payload is
-invented to bypass them.
+Gladys deletes omitted features when updating a device, and this integration
+cannot migrate other thermostats' or scenes' references. Before removing the
+old feature, select **Température de consigne** in the existing thermostat and
+replace references to the old target in scenes and widgets. Do not delete the
+device. A removed alias is not recreated on later scans.
 
-When an order is ignored, the native control retains its last confirmed target
-instead of presenting the correction as a human manual override. The failure
-event and logs report it and the schedule can retry. Divergent values are not
-treated as manual changes on that control while its target is pending; the
-legacy features remain available for diagnostics.
+### OFF, resume and feedback
 
-Native control is exposed on **EV30 only**, whose protocol was measured.
-ECTRL, ESTAT, RSS-ECTRL, NTD and ETRV retain their legacy controls; expanding
-native support requires real hardware/gateway validation.
+OFF sends the measured Axenco standby command. The frost fallback written
+afterwards is remembered without sending `targetMode: 8`, which would wake the
+heater. Stop intent and the parked target persist in `/data` across container
+restarts. Cloud failures and ignored commands are still reported as failures.
+Resume and its following target are combined into one temperature command;
+resume alone uses the remembered target. A subsequent OFF or direct Axenco
+mode cancels a delayed resume.
+
+While stopped, the target is a remembered value, not a temperature currently
+applied to the hardware. While running, it follows actual device observations,
+including Comfort/Eco in Auto. A stale `overrideTemp` cannot overwrite the
+effective target. HTTP 200 is not confirmation. Explicit Axenco mode commands
+synchronize stop intent, as do observed physical mode changes when no mode
+command is awaiting confirmation.
+
+Device-reported bounds are retained, with a 0.5 °C step on EV30. On a device
+advertising 16–21 °C, Gladys clamps a numeric frost target of 7 °C to 16 °C.
+OFF still sends standby. No wider range or unverified payload is introduced.
+
+An ignored target retains its last confirmed value instead of creating a
+false manual override. The failure event and logs report it; the schedule can
+retry. Divergent targets are not treated as manual changes while a target is
+pending.
+
+Stop protection and the standard mode remain **EV30-only**, whose protocol
+was measured. ECTRL, ESTAT, RSS-ECTRL, NTD and ETRV retain historical controls;
+expanding support requires hardware and gateway validation.
 
 ## EWS and window contacts
 

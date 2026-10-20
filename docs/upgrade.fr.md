@@ -18,22 +18,26 @@ nouvelles commandes, même si le planning Gladys continue à tourner localement.
 ## Pilotage direct, sans thermostat Gladys
 
 Le thermostat Gladys est optionnel, appareil par appareil. **Mode Axenco**
-permet de sélectionner directement les modes du radiateur ; **Température
-cible** applique une dérogation. Le programme fabricant, les consignes par
-mode, les capteurs, le widget Neomitis et les actions de scène restent
-utilisables sans créer de thermostat Gladys.
+permet de sélectionner directement les modes du radiateur. **Température de
+consigne** est la consigne commune aux commandes directes, aux scènes et au
+thermostat Gladys. Son identifiant historique `target-temperature` est conservé.
+Les programmes fabricant, consignes par mode, capteurs, widget Neomitis et
+scènes restent utilisables sans créer de thermostat Gladys.
 
-Après un scan, utiliser **Mettre à jour** dans Découverte pour ajouter le
-sélecteur à un appareil existant. Ses anciens interrupteurs de modes restent
-présents avec leurs identifiants pour les scènes existantes. Les nouveaux
-appareils utilisent le sélecteur et ne créent plus ces interrupteurs.
+Sur EV30, modifier la consigne pendant la veille mémorise la valeur sans
+rallumer le radiateur. Pour reprendre, sélectionner **Chauffage** dans **Mode
+du radiateur**, un mode actif dans **Mode Axenco**, ou utiliser l'action
+**Appliquer une dérogation** du widget ou des scènes. Cette dernière applique
+explicitement la température et démarre la dérogation en une seule commande.
+Les autres modèles conservent leur commande de température historique.
 
-**Dérogation (consigne actuelle)** réutilise la dernière consigne Axenco
-observée, avec les mêmes contrôles de bornes que l'ancienne commande de
-température. Pour choisir une autre valeur, régler **Température cible**.
+Après un scan, utiliser **Mettre à jour** dans Découverte. Les anciens
+interrupteurs de modes déjà créés conservent leurs identifiants pour les
+scènes existantes. Les nouveaux appareils utilisent uniquement le sélecteur.
+**Dérogation (consigne actuelle)** applique la dernière consigne Axenco
+observée ; sur EV30, il s'agit de la consigne effective du mode en cours.
 Les codes Auto `0`, `60` et `61` sont regroupés en une option Auto ; le texte
 **Mode actuel** garde la distinction Confort/Éco et signale les codes inconnus.
-Un code inconnu ne devient jamais une commande proposée par le sélecteur.
 
 ## EV30 : thermostat réel dans Gladys
 
@@ -41,60 +45,77 @@ Créer un **thermostat réel** dans **Intégrations → Thermostat** et sélecti
 
 | Réglage                | Fonctionnalité de l'EV30                                 |
 | ---------------------- | -------------------------------------------------------- |
-| Consigne               | **Consigne thermostat Gladys**                           |
-| Mode de fonctionnement | **Mode thermostat Gladys**                               |
+| Consigne               | **Température de consigne**                              |
+| Mode de fonctionnement | **Mode du radiateur**                                    |
 | Température mesurée    | **Température actuelle**                                 |
 | État de chauffe        | Laisser vide : aucune mesure de chauffe n'a été vérifiée |
 | Fenêtre                | Voir la section dédiée ci-dessous                        |
 
-Les deux fonctionnalités « thermostat Gladys » forment un couple. Sélectionner
-seulement la consigne, ou utiliser l'ancienne **Température cible**, ne donne
-pas la protection d'arrêt décrite ci-dessous. Aucun calcul d'hystérésis ou de
-TPI n'est ajouté à l'EV30 : il régule lui-même.
+**Mode du radiateur** est l'ancien **Mode thermostat Gladys**, renommé sans
+changer son identifiant. C'est le mode physique Arrêt/Chauffage du radiateur.
+Il faut le sélectionner pour permettre au thermostat Gladys de mettre le
+radiateur en veille et de le reprendre ensuite. Aucun calcul d'hystérésis ou
+de TPI n'est ajouté à l'EV30 : il régule lui-même.
 
 Le planning et les préréglages Confort/Éco/Nuit/Absence sont ceux de Gladys.
 Désactiver le programme fabricant avant de confier le planning à Gladys.
 **Planning Gladys** et **Auto MyNeomitis** sont deux mécanismes distincts.
-Pour les scènes d'une zone gérée par Gladys, contrôler les fonctionnalités du
-thermostat créé par Gladys (préréglage, mode, consigne), plutôt que les
-commandes directes Axenco qui seraient un second responsable de la zone.
+Pour arrêter durablement une zone gérée par Gladys, arrêter le thermostat de
+planning : un programme encore actif peut reprendre la main sur le radiateur.
+
+### Appareils ayant déjà l'ancienne consigne supplémentaire
+
+Les nouveaux appareils ne créent plus **Consigne thermostat Gladys**. Si cette
+fonctionnalité existe déjà, elle est conservée sous le nom **Consigne
+(compatibilité)**, avec le même identifiant `thermostat-temperature`, le même
+historique et exactement le même comportement que la consigne commune. Une
+commande ou une observation synchronise les deux : elles n'ont plus de logique
+indépendante.
+
+Cette conservation est nécessaire : Gladys supprime une fonctionnalité omise
+lors de la mise à jour d'un appareil, sans que l'intégration puisse migrer les
+références des thermostats ou des scènes. Pour utiliser uniquement la consigne
+commune, sélectionner **Température de consigne** dans le thermostat existant
+et remplacer les références à l'ancienne consigne dans les scènes et widgets
+avant de retirer cette ancienne fonctionnalité. Ne pas supprimer l'appareil.
+Une ancienne consigne retirée n'est pas recréée lors des scans suivants.
 
 ### Arrêt, reprise et consignes
 
 - **Arrêt** envoie l'ordre Veille Axenco déjà mesuré sur EV30.
-- La consigne de repli que Gladys écrit ensuite est mise en attente ; elle
-  n'envoie pas `targetMode: 8` et ne rallume donc pas le radiateur.
-- L'intention d'arrêt et la consigne en attente sont enregistrées dans `/data`.
-  Elles survivent au redémarrage du conteneur. Elles ne garantissent pas une
-  mise en veille physique si Axenco est injoignable ou ignore la commande.
-- Une reprise suivie d'une consigne est regroupée pour envoyer une seule
-  commande de température. Sans nouvelle consigne, la valeur mémorisée est
-  utilisée. Une nouvelle demande d'arrêt annule une reprise encore en attente.
-- Pendant l'arrêt, la **Consigne thermostat Gladys** représente la valeur
-  mémorisée pour une reprise, pas une température actuellement appliquée au
-  radiateur. L'ancienne **Température cible** conserve sa représentation Axenco.
-- En fonctionnement, la nouvelle consigne n'est publiée qu'à partir des
-  observations du matériel. La réponse HTTP 200 ne vaut pas confirmation.
+- La consigne de repli écrite ensuite par Gladys est mémorisée sans envoyer
+  `targetMode: 8`, ce qui préserve la veille physique.
+- L'intention d'arrêt et la consigne en attente sont enregistrées dans `/data`
+  et survivent au redémarrage du conteneur. Une indisponibilité Axenco ou une
+  commande ignorée reste signalée comme un échec.
+- Une reprise suivie d'une consigne est regroupée en une seule commande de
+  température. Sans nouvelle consigne, la valeur mémorisée est utilisée.
+  Une nouvelle demande d'arrêt ou de mode Axenco annule la reprise en attente.
+- Pendant l'arrêt, la consigne représente la valeur mémorisée, pas une
+  température actuellement appliquée au radiateur.
+- En fonctionnement, la consigne suit les observations du matériel, y compris
+  les températures Confort/Éco en Auto. La réponse HTTP 200 ne vaut pas
+  confirmation ; une ancienne valeur `overrideTemp` ne remplace pas la
+  consigne effective du mode en cours.
+- Un changement de mode Axenco explicite synchronise l'intention d'arrêt.
+  Les changements physiques observés la synchronisent également lorsqu'aucun
+  ordre de mode n'est encore en attente de confirmation.
 
 **Bornes :** la plage annoncée par l'appareil est conservée, avec un pas de
-0,5 °C pour le contrôle EV30. Si elle commence à 16 °C, un préréglage Hors gel
-de 7 °C sera limité par Gladys à 16 °C. Le mode Arrêt reste protégé par Veille,
-mais on ne prétend pas fournir un Hors gel numérique à 7 °C dans cette plage.
-Il faut mesurer les limites de dérogation avant de les élargir ; aucun nouveau
-payload Axenco n'est inventé pour contourner cette limite.
+0,5 °C pour EV30. Si elle commence à 16 °C, un préréglage Hors gel de 7 °C sera
+limité par Gladys à 16 °C. Le mode Arrêt reste protégé par Veille ; aucun
+élargissement des bornes ou nouveau payload Axenco n'est introduit.
 
-En cas de commande ignorée, la dernière consigne confirmée est conservée sur
-le contrôle natif, pour ne pas transformer une correction en dérogation
-manuelle Gladys. L'événement de commande non confirmée et les logs signalent
-l'écart. Le planning peut réessayer au passage suivant. Tant qu'une consigne
-reste en attente, les valeurs divergentes ne sont pas présentées comme des
-changements manuels sur ce contrôle ; les fonctionnalités historiques restent
-disponibles pour le diagnostic.
+En cas de commande ignorée, la dernière consigne confirmée est conservée pour
+ne pas transformer une correction en dérogation manuelle Gladys. L'événement
+de commande non confirmée et les logs signalent l'écart. Le planning peut
+réessayer au passage suivant. Tant qu'une consigne reste en attente, les
+valeurs divergentes ne sont pas présentées comme des changements manuels.
 
 Les modèles `ECTRL`, `ESTAT`, `RSS-ECTRL`, `NTD` et `ETRV` conservent leurs
-commandes historiques. Le couple de commandes natif est réservé à **EV30**,
-dont le protocole a été mesuré. Le portage aux autres modèles demande une
-validation matérielle, notamment des sous-appareils et de leur passerelle.
+commandes historiques. La protection d'arrêt et le mode standard restent
+réservés à **EV30**, dont le protocole a été mesuré. Le portage aux autres
+modèles demande une validation matérielle et des routes de passerelle.
 
 ## Relais et fil pilote EWS
 

@@ -395,7 +395,7 @@ test('SDK fake validates discovery, widget forms and scene action acknowledgemen
     },
   );
   assert.equal(widgetTemperature.success, true);
-  assert.deepEqual(commands[2], [entry.ids.device, 'target-temperature', 20.5]);
+  assert.deepEqual(commands[2], [entry.ids.device, 'target-temperature', 20.5, { resume: true }]);
 });
 
 test('publisher ignores uncreated features and sends heartbeats only for fresh snapshots', async (t) => {
@@ -548,5 +548,54 @@ test('a failed persistent resume cannot let its following target wake the heater
   t.after(() => control.cancelAll());
   await assert.rejects(control.command(entry, STANDARD.MODE, 1), /disk full/);
   await assert.rejects(control.command(entry, STANDARD.TARGET, 21), /disk full/);
+  assert.equal(client.calls.length, 0);
+});
+
+test('shared EV30 control does not intercept the other models historical targets', (t) => {
+  const { control } = harness(t);
+  for (const model of ['ECTRL', 'ESTAT', 'RSS-ECTRL', 'NTD', 'ETRV']) {
+    const entry = describeDevice(fakeGladys, axencoThermostat({ model }));
+    assert.equal(control.handles(entry, STANDARD.TARGET), false, model);
+  }
+});
+
+test('stale feedback after OFF cannot release the shared target protection', async (t) => {
+  const { control, entry, client } = harness(t);
+  await control.command(entry, STANDARD.MODE, 0);
+  control.observe(entry, { targetMode: 8, overrideTemp: 20 });
+  await control.command(entry, STANDARD.TARGET, 7);
+  assert.deepEqual(client.calls, [{ name: 'setDeviceMode', args: [entry.axencoId, 4] }]);
+});
+
+test('manual physical mode changes synchronize the shared stop intent', async (t) => {
+  const { control, entry, client, records } = harness(t);
+  control.observe(entry, { targetMode: 4 });
+  await control.command(entry, STANDARD.TARGET, 7);
+  assert.equal(client.calls.length, 0, 'physical standby also protects setpoint writes');
+  control.observe(entry, { targetMode: 8, overrideTemp: 20 });
+  await settle();
+  assert.equal(records.get(entry.axencoId).stopped, false);
+  await control.command(entry, STANDARD.TARGET, 21);
+  assert.deepEqual(client.calls, [{ name: 'setDeviceTemperature', args: [entry.axencoId, 21] }]);
+});
+
+test('a manufacturer mode cancels an earlier delayed resume', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { control, entry, client } = harness(t);
+  await control.command(entry, STANDARD.MODE, 1);
+  entry.state.targetMode = 2;
+  await control.directModeChanged(entry);
+  t.mock.timers.tick(200);
+  await settle();
+  assert.equal(client.calls.length, 0);
+});
+
+test('physical standby at restart overrides an old saved running intent', async (t) => {
+  const raw = axencoThermostat();
+  const { control, entry, client } = harness(t, {
+    state: { targetMode: 4 },
+    saved: { [raw._id]: { stopped: false, target: 21 } },
+  });
+  await control.command(entry, STANDARD.TARGET, 7);
   assert.equal(client.calls.length, 0);
 });

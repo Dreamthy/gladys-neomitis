@@ -6,10 +6,23 @@ import { describeDevice } from '../src/devices/index.js';
 import { STANDARD } from '../src/devices/standard.js';
 import { axencoThermostat, fakeAxencoClient } from './helpers/fakes.js';
 
-async function runtime(t, { created = true } = {}) {
+async function runtime(t, { created = true, legacyTarget = false, state = {} } = {}) {
   const gladys = createFakeGladys({ config: { email: 'fake@example.invalid', password: 'fake' } });
-  const raw = axencoThermostat({ state: { currentTemp: 19, overrideTemp: 20, targetMode: 8 } });
+  const raw = axencoThermostat({
+    state: { currentTemp: 19, overrideTemp: 20, targetMode: 8, ...state },
+  });
   const description = describeDevice(gladys, raw);
+  if (legacyTarget) {
+    const target = description.gladysDevice.features.find(
+      (feature) => feature.external_id === description.ids.feature(STANDARD.TARGET),
+    );
+    description.gladysDevice.features.push({
+      ...target,
+      name: 'Consigne thermostat Gladys',
+      external_id: description.ids.feature(STANDARD.LEGACY_TARGET),
+      selector: `${target.selector}-compatibility`,
+    });
+  }
   if (created) gladys.fake.devices = [description.gladysDevice];
   const listeners = new Map();
   const client = Object.assign(fakeAxencoClient(), {
@@ -249,4 +262,154 @@ test('scenes on an existing device work before and after accepting the new selec
     client.calls.map((c) => c.args[1]),
     [2, 1, 2],
   );
+});
+
+test('discovery exposes one shared EV30 target and preserves its historical id', async (t) => {
+  const { gladys, description } = await runtime(t);
+  const features = gladys.fake.discoveredDevices[0].features;
+  const targets = features.filter(
+    (f) => f.category === 'thermostat' && f.type === 'target-temperature',
+  );
+  assert.equal(targets.length, 1);
+  assert.equal(targets[0].external_id, description.ids.feature('target-temperature'));
+  assert.equal(targets[0].name, 'Température de consigne');
+  assert.equal(
+    features.find((f) => f.external_id === description.ids.feature(STANDARD.MODE)).name,
+    'Mode du radiateur',
+  );
+});
+
+test('shared target publishes the actual Comfort and Auto setpoints without raw override duplicates', async (t) => {
+  const { gladys, listeners, raw, description } = await runtime(t, {
+    state: { targetMode: 1, comfTemp: 21, overrideTemp: 18, ecoTemp: 17 },
+  });
+  const targetId = description.ids.feature(STANDARD.TARGET);
+  assert.equal(gladys.fake.lastState(targetId), 21);
+  const before = gladys.fake.states.length;
+  listeners.get(raw._id)({ targetMode: 61, overrideTemp: 18 });
+  await new Promise((resolve) => setImmediate(resolve));
+  const targets = gladys.fake.states
+    .slice(before)
+    .filter((s) => s.device_feature_external_id === targetId);
+  assert.deepEqual(
+    targets.map((s) => s.state),
+    [17],
+  );
+});
+
+test('direct Axenco mode releases a stop and cannot leave shared targets parked', async (t) => {
+  const { app, client, description } = await runtime(t);
+  const id = description.ids.device;
+  await app.command(id, STANDARD.MODE, 0);
+  await app.command(id, STANDARD.TARGET, 7);
+  await app.command(id, 'axenco-mode', 'comfort');
+  await app.command(id, STANDARD.TARGET, 21);
+  assert.deepEqual(client.calls, [
+    { name: 'setDeviceMode', args: [description.axencoId, 4] },
+    { name: 'setDeviceMode', args: [description.axencoId, 1] },
+    { name: 'setDeviceTemperature', args: [description.axencoId, 21] },
+  ]);
+});
+
+test('direct standby protects shared writes and the explicit override action can resume', async (t) => {
+  const { app, gladys, client, description } = await runtime(t);
+  await app.command(description.ids.device, 'axenco-mode', 'standby');
+  await app.command(description.ids.device, STANDARD.TARGET, 7);
+  assert.deepEqual(
+    client.calls.map((c) => c.name),
+    ['setDeviceMode'],
+  );
+  const rejected = await gladys.fake.sceneAction('set_temperature', {
+    device: description.ids.device,
+    temperature: 100,
+  });
+  assert.equal(rejected.success, false);
+  assert.equal(client.calls.length, 1, 'an invalid override never resumes');
+  const accepted = await gladys.fake.sceneAction('set_temperature', {
+    device: description.ids.device,
+    temperature: 21,
+  });
+  assert.equal(accepted.success, true);
+  assert.deepEqual(client.calls.at(-1), {
+    name: 'setDeviceTemperature',
+    args: [description.axencoId, 21],
+  });
+  assert.equal(client.calls.length, 2, 'resume and target use one captured Axenco payload');
+});
+
+test('selecting the current override resumes standby through the shared controller', async (t) => {
+  const { app, client, description } = await runtime(t, { state: { targetMode: 4 } });
+  await app.command(description.ids.device, 'axenco-mode', 'setpoint');
+  assert.deepEqual(client.calls, [
+    { name: 'setDeviceTemperature', args: [description.axencoId, 20] },
+  ]);
+  await app.command(description.ids.device, STANDARD.TARGET, 21);
+  assert.equal(client.calls.length, 2);
+});
+
+test('existing duplicate targets survive device updates as synchronized compatibility aliases', async (t) => {
+  const { app, gladys, description, client, listeners, raw } = await runtime(t, {
+    legacyTarget: true,
+  });
+  const targetId = description.ids.feature(STANDARD.TARGET);
+  const aliasId = description.ids.feature(STANDARD.LEGACY_TARGET);
+  assert.equal(gladys.fake.lastState(aliasId), 20);
+  const discovered = gladys.fake.discoveredDevices[0];
+  assert.equal(
+    discovered.features.find((f) => f.external_id === aliasId).name,
+    'Consigne (compatibilité)',
+  );
+  await gladys.fake.deviceUpdated(discovered);
+  assert.equal(gladys.fake.lastState(aliasId), 20);
+  await app.command(description.ids.device, STANDARD.MODE, 0);
+  await app.command(description.ids.device, STANDARD.LEGACY_TARGET, 7);
+  assert.equal(gladys.fake.lastState(targetId), 7);
+  assert.equal(gladys.fake.lastState(aliasId), 7);
+  assert.equal(client.calls.length, 1);
+  await app.command(description.ids.device, STANDARD.MODE, 1);
+  await app.command(description.ids.device, STANDARD.LEGACY_TARGET, 21);
+  listeners.get(raw._id)({ targetMode: 8, overrideTemp: 21 });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(gladys.fake.lastState(targetId), 21);
+  assert.equal(gladys.fake.lastState(aliasId), 21);
+  assert.equal(client.calls.length, 2);
+  const updated = {
+    ...discovered,
+    features: discovered.features.filter((f) => f.external_id !== aliasId),
+  };
+  const before = gladys.fake.states.length;
+  await gladys.fake.deviceUpdated(updated);
+  assert.ok(
+    !gladys.fake.states.slice(before).some((s) => s.device_feature_external_id === aliasId),
+  );
+  await assert.rejects(
+    app.command(description.ids.device, STANDARD.LEGACY_TARGET, 20),
+    /Feature unavailable/,
+  );
+  await app.refresh();
+  assert.ok(
+    !gladys.fake.discoveredDevices[0].features.some((f) => f.external_id === aliasId),
+    'a removed alias is not recreated',
+  );
+});
+
+test('an Axenco mode supersedes a resume that became queued while its HTTP call was in flight', async (t) => {
+  const { app, client, description } = await runtime(t);
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let release;
+  client.setDeviceMode = async (...args) => {
+    client.calls.push({ name: 'setDeviceMode', args });
+    await new Promise((resolve) => {
+      release = resolve;
+    });
+  };
+  await app.command(description.ids.device, STANDARD.MODE, 1);
+  const manufacturerMode = app.command(description.ids.device, 'axenco-mode', 'eco');
+  await new Promise((resolve) => setImmediate(resolve));
+  t.mock.timers.tick(500);
+  await new Promise((resolve) => setImmediate(resolve));
+  release();
+  await manufacturerMode;
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(client.calls, [{ name: 'setDeviceMode', args: [description.axencoId, 2] }]);
 });

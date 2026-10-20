@@ -32,10 +32,13 @@ l'installer. Aucun tag de version officielle ni `latest` n'est mis à jour.
 
 - Vérifier les températures, les modes et les anciennes scènes avant de créer
   une zone de thermostat Gladys.
-- Sur un seul EV30, sélectionner le nouveau couple **Mode thermostat Gladys** /
-  **Consigne thermostat Gladys**, puis tester une consigne dans ses bornes.
+- Sur un seul EV30, sélectionner **Mode du radiateur** et
+  **Température de consigne**, puis tester une consigne dans ses bornes.
+- Si l'ancienne **Consigne thermostat Gladys** existe, vérifier sa compatibilité
+  puis sélectionner la consigne commune dans le thermostat existant.
 - Passer en Arrêt, vérifier physiquement la veille, puis vérifier que la
-  consigne de repli ne le rallume pas. Tester ensuite la reprise.
+  consigne de repli et une écriture de la consigne commune ne le rallument pas.
+  Tester ensuite la reprise, les modes Axenco et la dérogation explicite.
 - Redémarrer le conteneur pendant l'arrêt et vérifier que l'intention d'arrêt
   est conservée. Une consigne en attente n'est pas une mesure physique.
 - Tester les changements du planning Gladys, en ayant désactivé le programme

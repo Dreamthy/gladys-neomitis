@@ -1,6 +1,6 @@
 // One Axenco device uses a mode selector; existing preset switches keep
-// their historical feature ids so existing Gladys scenes remain valid. Gladys 5.2 adds a separate
-// EV30 thermostat pair, an EWS binary relay and standard pilot-wire controls.
+// their historical feature ids so existing Gladys scenes remain valid. Gladys 5.2 uses
+// the shared EV30 setpoint, a physical mode, an EWS relay and pilot-wire controls.
 // The full Axenco preset list is also available in the integration widget.
 // Unknown reported modes remain visible through the legacy text feature.
 
@@ -188,6 +188,7 @@ export function buildFeatures({
   presetKeys,
   modeKeys = presetKeys,
   legacyPresetKeys = [],
+  legacyThermostatTarget = false,
   state,
   model,
 }) {
@@ -211,7 +212,7 @@ export function buildFeatures({
   if (model === 'EV30') {
     add(
       STANDARD.MODE,
-      'Mode thermostat Gladys',
+      'Mode du radiateur',
       DEVICE_FEATURE_CATEGORIES.THERMOSTAT,
       DEVICE_FEATURE_TYPES.THERMOSTAT.MODE,
       0,
@@ -223,15 +224,18 @@ export function buildFeatures({
         ],
       },
     );
-    add(
-      STANDARD.TARGET,
-      'Consigne thermostat Gladys',
-      DEVICE_FEATURE_CATEGORIES.THERMOSTAT,
-      DEVICE_FEATURE_TYPES.THERMOSTAT.TARGET_TEMPERATURE,
-      numberOr(state.comfLimitMin, DEFAULT_MIN_TEMP),
-      numberOr(state.comfLimitMax, DEFAULT_MAX_TEMP),
-      { unit: DEVICE_FEATURE_UNITS.CELSIUS, step: 0.5, keep_history: true },
-    );
+    // Gladys deletes missing features on device update. Retain an existing
+    // alias so saved thermostat/scenes and history are not silently destroyed.
+    if (legacyThermostatTarget)
+      add(
+        STANDARD.LEGACY_TARGET,
+        'Consigne (compatibilité)',
+        DEVICE_FEATURE_CATEGORIES.THERMOSTAT,
+        DEVICE_FEATURE_TYPES.THERMOSTAT.TARGET_TEMPERATURE,
+        numberOr(state.comfLimitMin, DEFAULT_MIN_TEMP),
+        numberOr(state.comfLimitMax, DEFAULT_MAX_TEMP),
+        { unit: DEVICE_FEATURE_UNITS.CELSIUS, step: 0.5, keep_history: true },
+      );
   }
   if (model === 'EWS' && state.deviceType === 0) {
     add(
@@ -289,7 +293,7 @@ export function buildFeatures({
     );
     features.push(
       withSelector({
-        name: 'Température cible',
+        name: 'Température de consigne',
         external_id: ids.feature(FEATURE.TARGET_TEMP),
         category: DEVICE_FEATURE_CATEGORIES.THERMOSTAT,
         type: DEVICE_FEATURE_TYPES.THERMOSTAT.TARGET_TEMPERATURE,
@@ -298,6 +302,7 @@ export function buildFeatures({
         // narrower limits than the 7/30 fallback (`comfLimitMin/Max`).
         min: numberOr(state.comfLimitMin, DEFAULT_MIN_TEMP),
         max: numberOr(state.comfLimitMax, DEFAULT_MAX_TEMP),
+        ...(model === 'EV30' ? { step: 0.5 } : {}),
         read_only: false,
         has_feedback: true,
         keep_history: true,

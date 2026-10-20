@@ -21,10 +21,12 @@ export function registerSurfaces(gladys, { findEntry, command, status }) {
     }
   };
   const setTemperature = async (device, temperature) => {
-    findEntry(device);
-    // Explicit Axenco derogation: unlike the native scheduler, this user action
-    // retains the historical behaviour of waking the heater with a temperature.
-    await command(device, FEATURE.TARGET_TEMP, temperature);
+    const entry = findEntry(device);
+    // This action explicitly starts a derogation. Ordinary shared-setpoint
+    // writes leave an EV30 in standby until its physical mode is resumed.
+    if (entry.model === 'EV30')
+      await command(device, FEATURE.TARGET_TEMP, temperature, { resume: true });
+    else await command(device, FEATURE.TARGET_TEMP, temperature);
   };
   gladys.onSceneAction('choose_mode', async ({ device, mode }) => {
     await chooseMode(device, mode);
@@ -69,7 +71,7 @@ export function registerSurfaces(gladys, { findEntry, command, status }) {
       });
     };
     temperature(FEATURE.CURRENT_TEMP, { en: 'Room', fr: 'Pièce' });
-    temperature(FEATURE.TARGET_TEMP, { en: 'Axenco target', fr: 'Consigne Axenco' });
+    temperature(FEATURE.TARGET_TEMP, { en: 'Setpoint', fr: 'Consigne' });
     components.push({
       type: 'status',
       items: [
