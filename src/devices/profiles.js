@@ -14,7 +14,7 @@
  * - `targetTempKey`     : Axenco state key holding the setpoint, null when the
  *                         model has no temperature at all.
  * - `presetStateKey`    : Axenco state key holding the mode.
- * - `presetRendering`   : `switches` -> one binary feature per preset;
+ * - `presetRendering`   : `switches` -> a selector and existing legacy switches;
  *                         `binary`   -> a single binary feature (two presets).
  * - `reportsChangeOver` : the model reports a heating/cooling change-over on
  *                         top of its presets, read-only (`climate.py` reads

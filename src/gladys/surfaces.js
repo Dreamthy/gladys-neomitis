@@ -1,6 +1,7 @@
 import { FEATURE, presetFeatureKey } from '../devices/features.js';
 import { PRESETS } from '../axenco/const.js';
 import { STANDARD } from '../devices/standard.js';
+import { modeLabel } from '../devices/index.js';
 
 /** All commands enter the same validated, per-device queue as device controls. */
 export function registerSurfaces(gladys, { findEntry, command, status }) {
@@ -54,9 +55,7 @@ export function registerSurfaces(gladys, { findEntry, command, status }) {
     const features = gladys.devices.find((d) => d.external_id === entry.ids.device).features;
     const value = (key) =>
       features.find((f) => f.external_id === entry.ids.feature(key))?.last_value;
-    const mode = features.find(
-      (f) => f.external_id === entry.ids.feature(FEATURE.MODE),
-    )?.last_value_string;
+    const mode = modeLabel(entry);
     const components = [
       { type: 'text', variant: 'heading', text: entry.gladysDevice.name.slice(0, 40) },
     ];

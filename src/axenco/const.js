@@ -72,8 +72,8 @@ export const PRESETS = {
     readCodes: [0, 60, 61],
     // In Auto the schedule alternates, and the device says which side it is on
     // right now. Confirmed by the user against the app: 60 is Auto Confort,
-    // 61 Auto Éco. Only the TEXT feature varies — the switch stays "Auto",
-    // since both are the same selectable mode.
+    // 61 Auto Éco. The widget and legacy text show the detail; the selector
+    // stays "Auto", since both are the same selectable mode.
     labelByCode: { 60: 'Auto (Confort)', 61: 'Auto (Éco)' },
   },
   on: { code: 1, label: 'Marche' },

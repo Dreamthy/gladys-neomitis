@@ -2,7 +2,7 @@
 // their historical feature ids so existing Gladys scenes remain valid. Gladys 5.2 uses
 // the shared EV30 setpoint, a physical mode, an EWS relay and pilot-wire controls.
 // The full Axenco preset list is also available in the integration widget.
-// Unknown reported modes remain visible through the legacy text feature.
+// The widget shows Auto details and unknown codes without an extra text feature.
 
 import {
   DEVICE_FEATURE_CATEGORIES,
@@ -189,6 +189,7 @@ export function buildFeatures({
   modeKeys = presetKeys,
   legacyPresetKeys = [],
   legacyThermostatTarget = false,
+  existingFeatureKeys = [],
   state,
   model,
 }) {
@@ -264,10 +265,13 @@ export function buildFeatures({
       },
     );
   }
-  if ([true, false, 0, 1].includes(state.windowStatus)) {
+  if (
+    [true, false, 0, 1].includes(state.windowStatus) ||
+    existingFeatureKeys.includes(STANDARD.WINDOW)
+  ) {
     add(
       STANDARD.WINDOW,
-      'Contact fenêtre pour thermostat',
+      'Fenêtre ouverte',
       DEVICE_FEATURE_CATEGORIES.OPENING_SENSOR,
       DEVICE_FEATURE_TYPES.SENSOR.BINARY,
       0,
@@ -310,20 +314,22 @@ export function buildFeatures({
     );
   }
 
-  // The mode as text: one glanceable line, and the only place an unmapped
-  // Axenco code stays visible.
-  features.push(
-    withSelector({
-      name: 'Mode actuel',
-      external_id: ids.feature(FEATURE.MODE),
-      category: DEVICE_FEATURE_CATEGORIES.TEXT,
-      type: DEVICE_FEATURE_TYPES.TEXT.TEXT,
-      ...NO_RANGE,
-      read_only: true,
-      has_feedback: false,
-      keep_history: false,
-    }),
-  );
+  // A selector already reports the mode. Preserve an existing text feature
+  // for references/history, and retain it on devices without a selector.
+  if (profile.presetRendering !== 'switches' || existingFeatureKeys.includes(FEATURE.MODE))
+    features.push(
+      withSelector({
+        name:
+          profile.presetRendering === 'switches' ? 'Mode actuel (compatibilité)' : 'Mode actuel',
+        external_id: ids.feature(FEATURE.MODE),
+        category: DEVICE_FEATURE_CATEGORIES.TEXT,
+        type: DEVICE_FEATURE_TYPES.TEXT.TEXT,
+        ...NO_RANGE,
+        read_only: true,
+        has_feedback: false,
+        keep_history: false,
+      }),
+    );
 
   if (profile.presetRendering === 'switches') {
     for (const presetKey of presetKeys) {
@@ -385,12 +391,17 @@ export function buildFeatures({
   // The read-only sensors the device already reports. Any device, including
   // sub-devices: nothing is written, so there is no routing to get wrong.
   for (const sensor of SENSOR_FEATURES) {
-    if (state[sensor.stateKey] === undefined) {
+    const legacyWindow = sensor.key === 'open-window';
+    if (
+      legacyWindow
+        ? !existingFeatureKeys.includes(sensor.key)
+        : state[sensor.stateKey] === undefined
+    ) {
       continue;
     }
     features.push(
       withSelector({
-        name: sensor.name,
+        name: legacyWindow ? `${sensor.name} (compatibilité)` : sensor.name,
         external_id: ids.feature(sensor.key),
         category: sensor.category,
         type: sensor.type,

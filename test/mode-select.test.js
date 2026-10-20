@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { describeDevice, buildStates, handleSetValue, FEATURE } from '../src/devices/index.js';
+import {
+  describeDevice,
+  buildStates,
+  handleSetValue,
+  modeLabel,
+  FEATURE,
+} from '../src/devices/index.js';
 import {
   fakeGladys,
   fakeAxencoClient,
@@ -89,11 +95,11 @@ test('selector states recognize Auto, override, standby and clear unknown modes'
   assert.equal(selected(entry, { targetMode: 4 }), 'standby');
   assert.equal(selected(entry, { targetMode: 8 }), 'setpoint');
   assert.equal(selected(entry, { targetMode: 42 }), 'unknown:42');
-  assert.equal(
-    buildStates(entry, { targetMode: 42 }).find(
+  assert.equal(modeLabel(entry, { targetMode: 42 }), 'Inconnu (42)');
+  assert.ok(
+    !buildStates(entry, { targetMode: 42 }).some(
       (s) => s.device_feature_external_id === entry.ids.feature(FEATURE.MODE),
-    ).text,
-    'Inconnu (42)',
+    ),
   );
   assert.equal(selected(entry, { currentTemp: 19 }), undefined);
 });

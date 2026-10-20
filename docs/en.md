@@ -68,9 +68,13 @@ It works independently: creating a Gladys thermostat is optional.
   On temperature-regulating devices, **Dérogation (consigne actuelle)** applies
   the last observed Axenco target. To choose another temperature, change
   **Température de consigne** or use the widget.
-- **Current mode** — read-only text: "Confort", "Éco", "Boost"… In Auto it
-  says which side of the schedule is running: "Auto (Confort)" or
-  "Auto (Éco)". The selector stays on "Auto".
+- **Mode details** — the widget shows "Auto (Confort)", "Auto (Éco)" and
+  unknown codes from observed hardware state. The selector stays on "Auto".
+  The old text feature is retained as **Mode actuel (compatibilité)** only
+  when already created. Devices without a selector keep their read-only mode.
+- **Fenêtre ouverte** — one standard Gladys contact: `0` open, `1` closed.
+  An already-created legacy contact with the opposite values remains as
+  **Fenêtre ouverte (compatibilité)** to preserve existing scenes.
 - **Legacy mode switches** — "Auto", "Confort", "Éco", "Hors gel", "Boost",
   "Veille"… These are retained only when already created in Gladys, preserving
   existing scenes. New devices use the selector instead. Auto is a mode like any other
@@ -120,8 +124,9 @@ The Neomitis widget also offers an Axenco mode form. Read the
 ## Using it in scenes
 
 Each mode switch is an ordinary feature: a scene can turn _Salon – Éco_ on in
-the evening and _Salon – Confort_ on in the morning. The _Mode actuel_ feature
-being text, it fits display and notifications better than conditions.
+the evening and _Salon – Confort_ on in the morning. Use **Mode Axenco** on
+new devices. The legacy _Mode actuel (compatibilité)_ text is retained only
+when already created.
 
 ## Known limitations
 
@@ -135,8 +140,8 @@ being text, it fits display and notifications better than conditions.
   reports 60 or 61 back, so all three decode to Auto on read — that read/write
   asymmetry is what made the reference library look right.
 - **An unknown code stays visible.** A mode Axenco reports that the integration
-  does not know shows as "Inconnu (42)" in _Mode actuel_ instead of being
-  silently dropped — that is how the 61 case was spotted.
+  does not know shows as "Inconnu (42)" in the widget and in an existing legacy
+  text feature, instead of being silently dropped — that is how the 61 case was spotted.
 - **`EWS` fil pilote: the mode list depends on `deviceType`.** `pyaxencoapi`
   and `select.py` advertise ten presets for every fil pilote EWS — the union of
   what Axenco hardware can do, not what a given module offers. A verified

@@ -104,6 +104,10 @@ les fonctionnalités du thermostat et son contact fenêtre.
 La [liste de développement](docs/development-plan.md) distingue les contrôles
 automatisés des vérifications matérielles encore nécessaires.
 
+Les nouveaux appareils à sélecteur n'ajoutent plus de texte de mode ni de
+contact fenêtre historique. Le widget affiche les détails du mode ; les anciens
+doublons déjà créés restent marqués « compatibilité ».
+
 ## Développement
 
 ```bash

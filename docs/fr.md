@@ -69,9 +69,14 @@ Il fonctionne de manière autonome : créer un thermostat Gladys est facultatif.
   L'option **Dérogation (consigne actuelle)**, sur les appareils régulant une
   température, réutilise la dernière consigne Axenco observée. Pour choisir une
   autre température, régler **Température de consigne** ou utiliser le widget.
-- **Mode actuel** — texte en lecture seule : « Confort », « Éco », « Boost »…
-  En Auto, il précise le côté du programme en cours : « Auto (Confort) » ou
-  « Auto (Éco) ». Le sélecteur reste sur « Auto ».
+- **Détail du mode** — le widget affiche « Auto (Confort) », « Auto (Éco) » et
+  les codes inconnus depuis les états matériels observés. Le sélecteur reste
+  sur « Auto ». Le champ texte **Mode actuel (compatibilité)** est conservé
+  uniquement lorsqu'il existe déjà ; les appareils sans sélecteur gardent
+  leur indication en lecture seule.
+- **Fenêtre ouverte** — contact standard Gladys : `0` ouvert, `1` fermé.
+  L'ancien capteur aux valeurs inversées subsiste uniquement s'il existe déjà,
+  sous **Fenêtre ouverte (compatibilité)**, pour préserver les scènes.
 - **Anciens interrupteurs de modes** — « Auto », « Confort », « Éco »,
   « Hors gel », « Boost », « Veille »… Ils sont conservés uniquement lorsqu'ils
   existent déjà dans Gladys, pour préserver vos scènes. Les nouveaux appareils
@@ -122,9 +127,9 @@ Voir le [guide de migration et de configuration du thermostat](upgrade.fr.md).
 ## Utilisation dans les scènes
 
 Chaque interrupteur de mode est une feature comme une autre : une scène peut
-« allumer » _Salon – Éco_ le soir et _Salon – Confort_ le matin. La feature
-_Mode actuel_ étant du texte, elle sert plutôt à l'affichage et aux
-notifications qu'aux conditions.
+« allumer » _Salon – Éco_ le soir et _Salon – Confort_ le matin. Sur les nouveaux
+appareils, utiliser le sélecteur **Mode Axenco**. Le texte historique
+_Mode actuel (compatibilité)_ reste disponible seulement s'il existe déjà.
 
 ## Limites connues
 
@@ -140,8 +145,8 @@ notifications qu'aux conditions.
   librairie de référence correcte.
 
 - **Un code inconnu reste visible.** Un mode qu'Axenco renverrait sans que
-  l'intégration le connaisse s'affiche « Inconnu (42) » dans _Mode actuel_
-  plutôt que d'être ignoré silencieusement — c'est ainsi que le cas du 61
+  l'intégration le connaisse s'affiche « Inconnu (42) » dans le widget, ainsi que
+  dans l'ancien texte s'il existe, plutôt que d'être ignoré silencieusement — c'est ainsi que le cas du 61
   a été repéré.
 - **`EWS` fil pilote : la liste de modes dépend du `deviceType`.**
   `pyaxencoapi` et `select.py` annoncent dix presets pour tout EWS fil pilote —

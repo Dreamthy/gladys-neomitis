@@ -102,6 +102,10 @@ optimistic feedback and 30-second reconciliation. Read the
 selecting the thermostat window contact. The [development checklist](docs/development-plan.md)
 records automated validation and the remaining hardware checks.
 
+New devices with a selector no longer add a mode text or legacy window
+contact. The widget displays mode details; already-created duplicates remain
+marked as compatibility features.
+
 ## Development
 
 ```bash

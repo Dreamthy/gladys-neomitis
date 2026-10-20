@@ -51,14 +51,13 @@ export function describeDevice(gladys, axencoDevice) {
   const selectableKeys = selectablePresetKeys(axencoDevice);
   const ids = gladys.externalIds(DEVICE_TYPE, axencoDevice._id);
   const created = (gladys.devices || []).find((device) => device.external_id === ids.device);
+  const existingFeatureKeys = (created?.features || []).map((feature) =>
+    feature.external_id.slice(ids.device.length + 1),
+  );
   const legacyPresetKeys = selectableKeys.filter((key) =>
-    created?.features.some((feature) => feature.external_id === ids.feature(presetFeatureKey(key))),
+    existingFeatureKeys.includes(presetFeatureKey(key)),
   );
-  const legacyThermostatTarget = Boolean(
-    created?.features.some(
-      (feature) => feature.external_id === ids.feature(STANDARD.LEGACY_TARGET),
-    ),
-  );
+  const legacyThermostatTarget = existingFeatureKeys.includes(STANDARD.LEGACY_TARGET);
   const modeKeys = presetKeys.filter((key) => key !== 'setpoint' || profile.targetTempKey);
   const state = { ...(axencoDevice.state || {}) };
   const gateway = profile.subDevice ? extractGatewayId(axencoDevice.parents) : null;
@@ -98,6 +97,7 @@ export function describeDevice(gladys, axencoDevice) {
         modeKeys,
         legacyPresetKeys,
         legacyThermostatTarget,
+        existingFeatureKeys,
         state,
         model: axencoDevice.model,
       }),
@@ -115,6 +115,14 @@ export function describeDevice(gladys, axencoDevice) {
  */
 export function featureKeyOf(entry, featureExternalId) {
   return featureExternalId.slice(entry.ids.device.length + 1);
+}
+
+/** Read the full hardware mode label without requiring a text feature. */
+export function modeLabel(entry, state = entry.observedState || entry.state) {
+  const code = state[entry.profile.presetStateKey];
+  if (!isNumber(code)) return undefined;
+  const key = presetKeyFromCode(entry.presetKeys, code);
+  return key ? (PRESETS[key].labelByCode?.[code] ?? PRESETS[key].label) : `Inconnu (${code})`;
 }
 
 /**
@@ -150,14 +158,9 @@ export function buildStates(entry, patch) {
     const activeKey = presetKeyFromCode(presetKeys, modeCode);
     states.push({
       device_feature_external_id: ids.feature(FEATURE.MODE),
-      // An unmapped code stays visible instead of being silently dropped:
-      // that is how a value the reference library does not document (Auto
-      // reported as 61) shows up on the first push rather than never.
-      // Auto reports 60 or 61 to say which side of the schedule it is on, so
-      // the text is finer-grained than the switch: "Auto (Confort)".
-      text: activeKey
-        ? (PRESETS[activeKey].labelByCode?.[modeCode] ?? PRESETS[activeKey].label)
-        : `Inconnu (${modeCode})`,
+      // Kept only for existing text features, or devices without a selector.
+      // The widget reads the same label directly from observed hardware state.
+      text: modeLabel(entry, patch),
     });
     if (profile.presetRendering === 'switches') {
       states.push({

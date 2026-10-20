@@ -29,8 +29,11 @@ Scan and choose **Update** in Discovery. Already-created mode switches retain
 their identifiers for existing scenes; new devices use the selector alone.
 **Dérogation (consigne actuelle)** applies the last observed Axenco target;
 on EV30 this is the effective target for its current mode. Auto codes `0`, `60`
-and `61` share one Auto option; **Mode actuel** distinguishes Auto Comfort/Eco
-and reports unknown codes.
+and `61` share one Auto option. The widget displays **Auto (Confort)** or
+**Auto (Éco)** and unknown codes from observed hardware state, without an
+extra text feature on new devices with a selector. An already-created text
+feature remains as **Mode actuel (compatibilité)** to preserve its references.
+Devices without a selector, such as UFH, retain their read-only indication.
 
 ## EV30: real thermostat
 
@@ -101,15 +104,23 @@ expanding support requires hardware and gateway validation.
   to Axenco codes. Legacy Auto and Boost remain. Gladys 5.2's virtual thermostat
   does not accept a pilot-wire mode as its actuator. Legacy preset switches
   ignore OFF and must not be used as binary heating actuators.
-- Supported devices automatically expose **Contact fenêtre pour thermostat**
-  when they report a boolean `windowStatus` (or numeric `0` / `1`): Axenco `false` means closed and `true` means an
-  opening is detected. The contact translates these to Gladys `1` closed /
-  `0` open. No polarity setting is needed. Scan and update the device, then
-  select this contact in the thermostat to suspend heating during a detection.
-  The legacy window feature keeps its identifier and values for existing
-  scenes. Devices that do not report this field expose no window contact.
-  This sensor mapping is independent of native thermostat command support,
-  which remains model-specific.
+- New devices expose one standard **Fenêtre ouverte** contact when reporting
+  a boolean `windowStatus` or numeric `0` / `1`: Axenco `false` means closed
+  (Gladys `1`), `true` means an opening is detected (Gladys `0`). No polarity
+  setting is needed. Its `window-contact` identifier is retained: the former
+  **Contact fenêtre pour thermostat** is renamed without changing references
+  or values. Scan and update, then select **Fenêtre ouverte** in the thermostat.
+- The legacy `open-window` feature is retained only when already created,
+  as **Fenêtre ouverte (compatibilité)**. Its opposite values (`1` open,
+  `0` closed) remain unchanged for existing scenes. Use the standard contact
+  without “compatibilité” for new thermostats and scenes.
+- No contact is created without a valid reported field. Temporary missing or
+  invalid readings do not remove an already-created contact. This mapping is
+  independent of model-specific native thermostat command support.
+
+Before removing legacy compatibility features, replace their references in
+scenes, widgets or thermostats. Removed features are not recreated. Do not
+delete the device to remove individual duplicate features.
 
 ## Widget, scenes and status
 

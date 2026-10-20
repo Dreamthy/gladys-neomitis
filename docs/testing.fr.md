@@ -47,7 +47,11 @@ l'installer. Aucun tag de version officielle ni `latest` n'est mis à jour.
   non confirmée. Un accusé de réception ne prouve pas l'exécution matérielle.
 - Vérifier le relais EWS si vous en possédez un. Le fil pilote ne peut pas
   servir directement d'actionneur au thermostat virtuel Gladys.
-- Sélectionner **Contact fenêtre pour thermostat** si cette
+- Vérifier qu'un nouvel appareil à sélecteur ne crée ni texte **Mode actuel**,
+  ni ancien capteur fenêtre. Sur un appareil existant, les fonctionnalités
+  marquées **compatibilité** doivent conserver leurs identifiants et valeurs.
+- Vérifier les détails Auto Confort/Éco et les codes inconnus dans le widget.
+- Sélectionner **Fenêtre ouverte** (sans « compatibilité ») si cette
   fonctionnalité est proposée, puis vérifier la suspension et la reprise du
   chauffage lors d'une détection d'ouverture. La correspondance est automatique.
 

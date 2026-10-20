@@ -13,7 +13,7 @@ Les détails d'utilisation sont dans le [guide de migration](upgrade.fr.md).
 - [x] Empêcher la consigne de repli écrite après Arrêt de rallumer l'EV30 ; mémoriser l'intention d'arrêt dans le volume persistant.
 - [x] Regrouper reprise et nouvelle consigne ; publier les consignes natives confirmées par le matériel.
 - [x] Ajouter un véritable interrupteur Marche/Arrêt pour EWS relais et traduire les six ordres standard du fil pilote EWS.
-- [x] Ajouter automatiquement le contact fenêtre compatible avec le thermostat aux appareils qui remontent windowStatus (false = fermé, true = ouverture détectée), sans réglage de correspondance ; conserver le capteur historique.
+- [x] Ajouter automatiquement le contact fenêtre compatible avec le thermostat aux appareils qui remontent windowStatus (false = fermé, true = ouverture détectée), sans réglage de correspondance ; conserver le capteur historique uniquement s'il existe déjà.
 - [x] Valider les fonctionnalités, les modes, les valeurs binaires, les températures et les bornes ; ne publier que les fonctionnalités déclarées et créées.
 - [x] Ordonner les commandes par appareil, limiter leur attente, borner le temps des requêtes d'écriture et annuler les actions différées lors de la suppression ou de l'arrêt.
 - [x] Contrôler les commandes après leur envoi, reconnaître les codes Auto équivalents et éviter les faux échecs lorsqu'une nouvelle commande remplace la précédente.
@@ -23,6 +23,7 @@ Les détails d'utilisation sont dans le [guide de migration](upgrade.fr.md).
 - [x] Vérifier les tests automatisés, ESLint, Prettier et le manifeste avec le validateur officiel.
 
 - [x] Ajouter un sélecteur Mode Axenco sur les appareils à plusieurs modes, sans imposer un thermostat Gladys ; conserver les anciens interrupteurs déjà créés et utiliser le sélecteur pour les nouveaux appareils.
+- [x] Ne plus créer de texte de mode sur les appareils à sélecteur ni de capteur fenêtre historique ; préserver les fonctionnalités existantes et afficher les détails du mode dans le widget.
 
 ## Vérifications matérielles et publication restantes
 
@@ -37,4 +38,4 @@ Ces points ne peuvent pas être validés par les tests logiciels seuls :
 Aucune nouvelle commande Axenco n'est inventée pour les matériels non vérifiés.
 Le thermostat virtuel Gladys ne pilote pas directement les ordres fil pilote.
 Les tests automatisés utilisent des doubles : ils ne commandent pas le chauffage.
-La publication et le déploiement n'ont pas été exécutés pendant ce développement local.
+La publication officielle et le déploiement restent à effectuer ; les images de test sont publiées sur la branche dédiée.

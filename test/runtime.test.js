@@ -6,12 +6,29 @@ import { describeDevice } from '../src/devices/index.js';
 import { STANDARD } from '../src/devices/standard.js';
 import { axencoThermostat, fakeAxencoClient } from './helpers/fakes.js';
 
-async function runtime(t, { created = true, legacyTarget = false, state = {} } = {}) {
+async function runtime(
+  t,
+  { created = true, legacyTarget = false, legacyReadOnly = false, state = {} } = {},
+) {
   const gladys = createFakeGladys({ config: { email: 'fake@example.invalid', password: 'fake' } });
   const raw = axencoThermostat({
     state: { currentTemp: 19, overrideTemp: 20, targetMode: 8, ...state },
   });
-  const description = describeDevice(gladys, raw);
+  const ids = gladys.externalIds('axenco', raw._id);
+  const description = describeDevice(
+    {
+      externalIds: (...args) => gladys.externalIds(...args),
+      devices: legacyReadOnly
+        ? [
+            {
+              external_id: ids.device,
+              features: ['mode', 'open-window'].map((key) => ({ external_id: ids.feature(key) })),
+            },
+          ]
+        : [],
+    },
+    raw,
+  );
   if (legacyTarget) {
     const target = description.gladysDevice.features.find(
       (feature) => feature.external_id === description.ids.feature(STANDARD.TARGET),
@@ -23,7 +40,7 @@ async function runtime(t, { created = true, legacyTarget = false, state = {} } =
       selector: `${target.selector}-compatibility`,
     });
   }
-  if (created) gladys.fake.devices = [description.gladysDevice];
+  gladys.fake.devices = created ? [description.gladysDevice] : [];
   const listeners = new Map();
   const client = Object.assign(fakeAxencoClient(), {
     down: false,
@@ -412,4 +429,91 @@ test('an Axenco mode supersedes a resume that became queued while its HTTP call 
   await manufacturerMode;
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(client.calls, [{ name: 'setDeviceMode', args: [description.axencoId, 2] }]);
+});
+
+test('widget shows observed Auto details and unknown codes without a text feature', async (t) => {
+  const { app, gladys, description, client, listeners, raw } = await runtime(t, {
+    state: { targetMode: 60, windowStatus: false },
+  });
+  const getMode = async () => {
+    const reply = await gladys.fake.widgetGet('heater', {
+      settings: { device: description.ids.device },
+      units: 'metric',
+    });
+    assert.equal(reply.success, true);
+    return reply.data.content.components
+      .find((c) => c.type === 'status')
+      .items.find((item) => item.label.en === 'Mode').value;
+  };
+  assert.ok(
+    !description.gladysDevice.features.some(
+      (f) => f.external_id === description.ids.feature('mode'),
+    ),
+  );
+  assert.equal(await getMode(), 'Auto (Confort)');
+  await app.command(description.ids.device, 'axenco-mode', 'eco');
+  assert.equal(
+    await getMode(),
+    'Auto (Confort)',
+    'an unconfirmed request is not reported as observed hardware mode',
+  );
+  for (const [code, label] of [
+    [61, 'Auto (Éco)'],
+    [42, 'Inconnu (42)'],
+  ]) {
+    listeners.get(raw._id)({ targetMode: code });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(await getMode(), label);
+  }
+  assert.ok(
+    !gladys.fake.states.some(
+      (s) => s.device_feature_external_id === description.ids.feature('mode'),
+    ),
+  );
+  assert.equal(client.calls.length, 1, 'displaying diagnostics sends no additional Axenco command');
+});
+
+test('legacy window polarity and mode references survive discovery updates, and removed duplicates stay removed', async (t) => {
+  const { app, gladys, description, listeners, raw } = await runtime(t, {
+    legacyReadOnly: true,
+    state: { windowStatus: false },
+  });
+  const id = (key) => description.ids.feature(key);
+  const updated = gladys.fake.discoveredDevices[0];
+  assert.equal(
+    updated.features.find((f) => f.external_id === id('mode')).name,
+    'Mode actuel (compatibilité)',
+  );
+  assert.equal(
+    updated.features.find((f) => f.external_id === id('open-window')).name,
+    'Fenêtre ouverte (compatibilité)',
+  );
+  assert.equal(
+    updated.features.find((f) => f.external_id === id(STANDARD.WINDOW)).name,
+    'Fenêtre ouverte',
+  );
+  await gladys.fake.deviceUpdated(updated);
+  assert.equal(gladys.fake.lastState(id('open-window')), 0);
+  assert.equal(gladys.fake.lastState(id(STANDARD.WINDOW)), 1);
+  listeners.get(raw._id)({ windowStatus: true, targetMode: 61 });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(gladys.fake.lastState(id('open-window')), 1);
+  assert.equal(gladys.fake.lastState(id(STANDARD.WINDOW)), 0);
+  assert.equal(gladys.fake.lastState(id('mode')), 'Auto (Éco)');
+  await gladys.fake.deviceUpdated({
+    ...updated,
+    features: updated.features.filter(
+      (f) => ![id('mode'), id('open-window')].includes(f.external_id),
+    ),
+  });
+  const before = gladys.fake.states.length;
+  await app.refresh();
+  const fresh = gladys.fake.discoveredDevices[0];
+  assert.ok(!fresh.features.some((f) => [id('mode'), id('open-window')].includes(f.external_id)));
+  assert.ok(fresh.features.some((f) => f.external_id === id(STANDARD.WINDOW)));
+  assert.ok(
+    !gladys.fake.states
+      .slice(before)
+      .some((s) => [id('mode'), id('open-window')].includes(s.device_feature_external_id)),
+  );
 });

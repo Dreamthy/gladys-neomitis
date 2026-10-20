@@ -16,7 +16,7 @@ import {
   axencoThermostat,
 } from './helpers/fakes.js';
 
-// Existing devices keep their legacy preset features. New-device tests below
+// Existing devices keep legacy switches and read-only features. New-device tests below
 // use describeDevice directly, without this compatibility fixture.
 const describe_ = (device) => {
   const ids = fakeGladys.externalIds('axenco', device._id);
@@ -26,9 +26,15 @@ const describe_ = (device) => {
       devices: [
         {
           external_id: ids.device,
-          features: selectablePresetKeys(device).map((key) => ({
-            external_id: ids.feature(`preset:${key}`),
-          })),
+          features: [
+            { external_id: ids.feature('mode') },
+            ...(device.state?.windowStatus !== undefined
+              ? [{ external_id: ids.feature('open-window') }]
+              : []),
+            ...selectablePresetKeys(device).map((key) => ({
+              external_id: ids.feature(`preset:${key}`),
+            })),
+          ],
         },
       ],
     },
@@ -107,7 +113,7 @@ test('a thermostat exposes temperatures, the mode and the selectable presets', (
     'Mode du radiateur',
     'Température actuelle',
     'Température de consigne',
-    'Mode actuel',
+    'Mode actuel (compatibilité)',
     'Boost',
     'Éco',
     'Confort',
@@ -145,7 +151,7 @@ test('an EWS relay exposes On/Off/Auto', () => {
   const relay = describe_(axencoThermostat({ model: 'EWS', state: { deviceType: 0 } }));
   assert.deepEqual(featureNames(relay), [
     'Marche / Arrêt',
-    'Mode actuel',
+    'Mode actuel (compatibilité)',
     'Marche',
     'Arrêt',
     'Auto',
@@ -160,7 +166,7 @@ test('an EWS fil pilote exposes the seven orders the module really emits', () =>
   const pilot = describe_(axencoThermostat({ model: 'EWS', state: { deviceType: 1 } }));
   assert.deepEqual(featureNames(pilot), [
     'Ordre fil pilote',
-    'Mode actuel',
+    'Mode actuel (compatibilité)',
     'Boost',
     'Éco',
     'Éco 1K',

@@ -36,8 +36,12 @@ interrupteurs de modes déjà créés conservent leurs identifiants pour les
 scènes existantes. Les nouveaux appareils utilisent uniquement le sélecteur.
 **Dérogation (consigne actuelle)** applique la dernière consigne Axenco
 observée ; sur EV30, il s'agit de la consigne effective du mode en cours.
-Les codes Auto `0`, `60` et `61` sont regroupés en une option Auto ; le texte
-**Mode actuel** garde la distinction Confort/Éco et signale les codes inconnus.
+Les codes Auto `0`, `60` et `61` sont regroupés en une option Auto. Le widget
+affiche **Auto (Confort)** ou **Auto (Éco)** et les codes inconnus directement
+depuis le dernier état matériel observé. Les nouveaux appareils à sélecteur ne
+créent plus de champ texte supplémentaire. Un **Mode actuel** déjà créé reste
+présent comme **Mode actuel (compatibilité)** pour préserver ses références.
+Les appareils sans sélecteur, comme UFH, gardent leur indication en lecture seule.
 
 ## EV30 : thermostat réel dans Gladys
 
@@ -132,20 +136,30 @@ modèles demande une validation matérielle et des routes de passerelle.
 
 ## Fenêtre ouverte
 
-La correspondance du champ Axenco est commune aux appareils pris en charge :
-`windowStatus: false` signifie fermé et `true` signifie ouverture détectée.
-Lorsque l'appareil remonte ce champ comme booléen (ou comme `0` / `1`), l'intégration propose automatiquement **Contact fenêtre pour
-thermostat**, avec les valeurs attendues par Gladys : `1` fermé et `0` ouvert.
-Il n'y a plus de réglage de correspondance dans la configuration.
+Un nouvel appareil expose un seul contact **Fenêtre ouverte**, compatible avec
+Gladys, lorsqu'il remonte un `windowStatus` booléen ou numérique `0` / `1` :
+`false` signifie fermé (`1` dans Gladys), `true` signifie ouverture détectée
+(`0` dans Gladys). Il n'y a pas de réglage de correspondance.
 
-Après un scan et la mise à jour de l'appareil, sélectionner cette
-fonctionnalité dans le thermostat si l'on souhaite suspendre le chauffage
-pendant une détection d'ouverture. Le capteur historique **Fenêtre ouverte**
-garde son identifiant et ses anciennes valeurs pour les scènes existantes.
+Ce contact conserve l'identifiant `window-contact` : l'ancien **Contact fenêtre
+pour thermostat** est simplement renommé, sans changer ses références ou ses
+valeurs. Après un scan et la mise à jour de l'appareil, sélectionner **Fenêtre
+ouverte** dans le thermostat pour suspendre le chauffage lors d'une ouverture.
 
-Les appareils qui ne remontent pas ce champ n'exposent pas de contact fenêtre.
-Cette traduction du capteur est indépendante de la prise en charge des
+L'ancien capteur `open-window`, qui utilise les valeurs opposées (`1` ouvert,
+`0` fermé), est conservé uniquement s'il existe déjà, sous le nom **Fenêtre
+ouverte (compatibilité)**. Ses valeurs ne sont pas inversées pour ne pas casser
+les scènes existantes. Utiliser le contact standard, sans la mention
+« compatibilité », dans les nouveaux thermostats et scènes.
+
+Aucun contact n'est créé sur un appareil qui ne remonte pas de valeur valide.
+Une lecture temporairement absente ou invalide ne supprime toutefois pas un
+contact déjà créé. Cette traduction est indépendante de la prise en charge des
 commandes du thermostat natif, qui reste propre au modèle.
+
+Pour retirer d'anciennes fonctionnalités de compatibilité, remplacer d'abord
+leurs références dans les scènes, widgets ou thermostats. Elles ne sont pas
+recréées après leur retrait. Ne pas supprimer l'appareil pour cela.
 
 ## Widget, scènes et diagnostics
 

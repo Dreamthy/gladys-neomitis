@@ -213,7 +213,16 @@ test('window contact mapping is automatic and legacy states are preserved', () =
     [0, 0, 1],
   ]) {
     const raw = axencoThermostat({ state: { windowStatus: rawValue } });
-    const entry = describeDevice(fakeGladys, raw);
+    const ids = fakeGladys.externalIds('axenco', raw._id);
+    const entry = describeDevice(
+      {
+        ...fakeGladys,
+        devices: [
+          { external_id: ids.device, features: [{ external_id: ids.feature('open-window') }] },
+        ],
+      },
+      raw,
+    );
     const states = buildStates(entry, raw.state);
     assert.equal(
       states.find((s) => s.device_feature_external_id.endsWith(':open-window')).state,
