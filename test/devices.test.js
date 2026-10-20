@@ -155,27 +155,27 @@ test('an EWS relay exposes On/Off/Auto', () => {
     'Marche',
     'Arrêt',
     'Auto',
-    'Mode Axenco',
+    'Mode du module',
   ]);
 });
 
-test('an EWS fil pilote exposes the seven orders the module really emits', () => {
+test('an EWS fil pilote exposes its eight modes with standard six-order labels', () => {
   // Measured on a real EWSFPNEOA and cross-checked against its manual: the
   // module drives "un fil pilote 4 ou 6 ordres" and its LED table reads
   // "Mode Éco, Éco-1 ou Éco-2". The MyNeomitis app menu hides those two.
   const pilot = describe_(axencoThermostat({ model: 'EWS', state: { deviceType: 1 } }));
   assert.deepEqual(featureNames(pilot), [
-    'Ordre fil pilote',
+    'Commande fil pilote (6 ordres)',
     'Mode actuel (compatibilité)',
     'Boost',
     'Éco',
-    'Éco 1K',
-    'Éco 2K',
+    'Confort −1 °C',
+    'Confort −2 °C',
     'Confort',
     'Auto',
     'Hors gel',
-    'Veille',
-    'Mode Axenco',
+    'Arrêt',
+    'Mode du module',
   ]);
   // Ignored twice by the hardware, and absent from the manual.
   for (const phantom of ['Dérogation', 'Confort +']) {

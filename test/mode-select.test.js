@@ -13,6 +13,7 @@ import {
   axencoThermostat,
   axencoSubDevice,
 } from './helpers/fakes.js';
+import { STANDARD } from '../src/devices/standard.js';
 
 const feature = (entry) =>
   entry.gladysDevice.features.find((f) => f.external_id === entry.ids.feature(FEATURE.MODE_SELECT));
@@ -124,6 +125,55 @@ test('selector commands use the existing main, relay, pilot-wire and gateway rou
       mode,
     );
   }
+});
+
+test('EWS labels align both controls while preserving feature IDs, mode keys and commands', async () => {
+  const raw = axencoThermostat({ model: 'EWS', state: { deviceType: 1 } });
+  const ids = fakeGladys.externalIds('axenco', raw._id);
+  const existing = [STANDARD.PILOT, FEATURE.MODE_SELECT, 'preset:eco_1', 'preset:standby'];
+  const entry = describeDevice(
+    {
+      ...fakeGladys,
+      devices: [
+        {
+          external_id: ids.device,
+          features: existing.map((key) => ({ external_id: ids.feature(key) })),
+        },
+      ],
+    },
+    raw,
+  );
+  const pilot = entry.gladysDevice.features.find(
+    (f) => f.external_id === ids.feature(STANDARD.PILOT),
+  );
+  assert.equal(pilot.name, 'Commande fil pilote (6 ordres)');
+  assert.equal(feature(entry).name, 'Mode du module');
+  const client = fakeAxencoClient();
+  for (const [key, standard, code, label] of [
+    ['eco_1', 3, 40, 'Confort −1 °C'],
+    ['eco_2', 4, 41, 'Confort −2 °C'],
+    ['standby', 0, 4, 'Arrêt'],
+  ]) {
+    assert.equal(feature(entry).supported_options.find((o) => o.value === key).label, label);
+    assert.equal(pilot.supported_options.find((o) => o.value === standard).label, label);
+    assert.equal(modeLabel(entry, { targetMode: code }), label);
+    await handleSetValue(client, entry, FEATURE.MODE_SELECT, key);
+    await handleSetValue(client, entry, STANDARD.PILOT, standard);
+    assert.deepEqual(client.calls.slice(-2), [
+      { name: 'setDeviceMode', args: [entry.axencoId, code] },
+      { name: 'setDeviceMode', args: [entry.axencoId, code] },
+    ]);
+  }
+  for (const key of existing)
+    assert.ok(entry.gladysDevice.features.some((f) => f.external_id === ids.feature(key)));
+  assert.equal(
+    entry.gladysDevice.features.find((f) => f.external_id === ids.feature('preset:eco_1')).name,
+    'Confort −1 °C',
+  );
+  assert.equal(
+    modeLabel(describeDevice(fakeGladys, axencoThermostat()), { targetMode: 4 }),
+    'Veille',
+  );
 });
 
 test('override selection writes the observed target rather than an ignored mode-8 order', async () => {

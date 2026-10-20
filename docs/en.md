@@ -65,6 +65,11 @@ It works independently: creating a Gladys thermostat is optional.
   without waking the heater; resume with a mode or an explicit override.
 - **Mode Axenco** — one selector for the modes supported by the model:
   Comfort, Eco, Auto, Boost, Standby, etc. It works without a Gladys thermostat.
+  On EWS it is named **Mode du module**, using **Confort −1 °C**,
+  **Confort −2 °C** and **Arrêt** to match Gladys pilot-wire terminology.
+  The separate **Commande fil pilote (6 ordres)** control represents only
+  the six standard orders. In Auto or Boost it retains its last known order;
+  the widget displays the full observed mode and flags that limitation.
   On temperature-regulating devices, **Dérogation (consigne actuelle)** applies
   the last observed Axenco target. To choose another temperature, change
   **Température de consigne** or use the widget.
@@ -177,10 +182,28 @@ when already created.
 
 ## Verification status per model
 
-Everything below concerns the **mode list only**. The protocol findings are the
-same for every model: `auto` is written as `targetMode: 0`, a derogation is not
-a selectable mode, and a setpoint is sent as `targetTemp` + `overrideTemp` +
-`targetMode: 8`. Those three apply to the "inherited" rows too.
+EV30 and EWS observations do not validate other models' protocols. The
+integration currently writes `targetMode: 0` for Auto on every profile that
+offers it. Main devices share the `targetTemp` + `overrideTemp` +
+`targetMode: 8` setpoint command captured on EV30; NTD and ETRV use their
+gateway with `targetTemp` alone. Applying these commands to untested models
+still needs hardware verification.
+
+The comparison on 20 October 2026 uses the
+[Home Assistant MyNeomitis source](https://github.com/home-assistant/core/tree/dev/homeassistant/components/myneomitis)
+and its `pyaxencoapi==1.0.7` dependency, whose listed repository is
+[`AXENCO-FR/ha-py-axenco-api`](https://github.com/AXENCO-FR/ha-py-axenco-api).
+These sources use Auto `60` and `overrideTemp` alone for a main device's
+setpoint. They identify differences; they do not justify replacing existing
+commands without evidence for the particular model.
+
+The latest [PyPI release](https://pypi.org/project/pyaxencoapi/) is actually
+**1.0.9**, published on 21 April 2026. Comparing the 1.0.7 and 1.0.9 archives
+shows gateway ID extraction from `parents` and reorganized per-model mode
+maps, including EWS and UFH. This integration already handles those routes
+and maps. Version 1.0.9 retains Auto `60` and `overrideTemp` alone, so it does
+not resolve the EV30 differences. Home Assistant and the latest library
+release must therefore be checked separately.
 
 | Model                                | Mode list                    | Command routing                 |
 | ------------------------------------ | ---------------------------- | ------------------------------- |
@@ -192,9 +215,10 @@ a selectable mode, and a setpoint is sent as `targetTemp` + `overrideTemp` +
 | `NTD`, `ETRV`                        | inherited from `pyaxencoapi` | inherited, gateway never tested |
 | `UFH`                                | inherited from `pyaxencoapi` | inherited, gateway never tested |
 
-"Inherited" means: the reference library's behaviour, kept as is for lack of
-hardware to check it against. That library turned out to be wrong on at least
-two counts, so treat those rows as hypotheses.
+"Inherited" describes the origin of a mode list or route, not hardware
+certification or a complete match with the current library. Automated tests
+check serialized commands and simulated readbacks for each profile; they do
+not prove that real devices apply those commands.
 
 The most doubtful one is `comfort_plus` (code 20), which `pyaxencoapi` gives to
 `ECTRL` / `ESTAT` / `RSS-ECTRL`. It is ignored by an EV30 and by an EWS, both

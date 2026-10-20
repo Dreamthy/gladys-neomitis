@@ -286,8 +286,9 @@ export class AxencoClient {
   /**
    * @description Set the setpoint of a main device, creating a derogation.
    *
-   * The payload is the one the official app sends, captured from its network
-   * traffic: the three fields go together in a SINGLE call
+   * The payload was captured from the official app on an EV30. Other main
+   * models currently share this command without hardware validation.
+   * The three fields go together in a SINGLE call
    * `{targetTemp, overrideTemp, targetMode: 8}`. Writing `overrideTemp` alone
    * also works — measured, the device moves to mode 8 by itself — but there is
    * no reason to diverge from the client that is known to be right, and

@@ -9,7 +9,7 @@ import {
   DEVICE_FEATURE_TYPES,
   DEVICE_FEATURE_UNITS,
 } from '@gladysassistant/integration-sdk';
-import { DEFAULT_MAX_TEMP, DEFAULT_MIN_TEMP, PRESETS } from '../axenco/const.js';
+import { DEFAULT_MAX_TEMP, DEFAULT_MIN_TEMP, PRESETS, presetLabelFor } from '../axenco/const.js';
 import { selectorFromExternalId } from '../selector.js';
 import { STANDARD, PILOT_PRESETS } from './standard.js';
 
@@ -252,7 +252,7 @@ export function buildFeatures({
     const supported = Object.entries(PILOT_PRESETS).filter(([, key]) => presetKeys.includes(key));
     add(
       STANDARD.PILOT,
-      'Ordre fil pilote',
+      'Commande fil pilote (6 ordres)',
       DEVICE_FEATURE_CATEGORIES.HEATER,
       DEVICE_FEATURE_TYPES.HEATER.PILOT_WIRE_MODE,
       0,
@@ -260,7 +260,7 @@ export function buildFeatures({
       {
         supported_options: supported.map(([value, key]) => ({
           value: Number(value),
-          label: PRESETS[key].label,
+          label: presetLabelFor(model, key),
         })),
       },
     );
@@ -340,7 +340,7 @@ export function buildFeatures({
       }
       features.push(
         withSelector({
-          name: preset.label,
+          name: presetLabelFor(model, presetKey),
           external_id: ids.feature(presetFeatureKey(presetKey)),
           category: DEVICE_FEATURE_CATEGORIES.SWITCH,
           type: DEVICE_FEATURE_TYPES.SWITCH.BINARY,
@@ -435,7 +435,7 @@ export function buildFeatures({
   if (profile.presetRendering === 'switches') {
     add(
       FEATURE.MODE_SELECT,
-      'Mode Axenco',
+      model === 'EWS' ? 'Mode du module' : 'Mode Axenco',
       DEVICE_FEATURE_CATEGORIES.TEXT,
       DEVICE_FEATURE_TYPES.TEXT.SELECT,
       0,
@@ -443,7 +443,7 @@ export function buildFeatures({
       {
         supported_options: modeKeys.map((key, index) => ({
           value: key,
-          label: key === 'setpoint' ? 'Dérogation (consigne actuelle)' : PRESETS[key].label,
+          label: key === 'setpoint' ? 'Dérogation (consigne actuelle)' : presetLabelFor(model, key),
           sort_order: index,
         })),
       },

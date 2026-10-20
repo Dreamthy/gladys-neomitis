@@ -47,6 +47,11 @@ l'installer. Aucun tag de version officielle ni `latest` n'est mis à jour.
   non confirmée. Un accusé de réception ne prouve pas l'exécution matérielle.
 - Vérifier le relais EWS si vous en possédez un. Le fil pilote ne peut pas
   servir directement d'actionneur au thermostat virtuel Gladys.
+- Mettre à jour l'EWS depuis Découverte : vérifier les noms **Mode du module**
+  et **Commande fil pilote (6 ordres)** sans suppression des fonctionnalités.
+  Vérifier Confort −1 °C, Confort −2 °C et Arrêt depuis les deux commandes.
+  En Auto ou Boost, le widget doit afficher le mode observé et signaler que
+  la commande à six ordres conserve son dernier ordre connu.
 - Vérifier qu'un nouvel appareil à sélecteur ne crée ni texte **Mode actuel**,
   ni ancien capteur fenêtre. Sur un appareil existant, les fonctionnalités
   marquées **compatibilité** doivent conserver leurs identifiants et valeurs.

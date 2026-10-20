@@ -127,9 +127,17 @@ modèles demande une validation matérielle et des routes de passerelle.
   réellement les deux ordres. Elle peut servir d'actionneur à un thermostat
   virtuel avec une sonde indépendante. Le protocole de ce modèle reste hérité
   et demande une vérification sur votre installation.
-- **Fil pilote** : **Ordre fil pilote** expose les six ordres standard supportés
-  par le profil, avec conversion des valeurs Gladys vers les codes Axenco.
-  Auto et Boost restent accessibles avec les commandes historiques.
+- **Fil pilote** : **Commande fil pilote (6 ordres)** expose les six ordres
+  standard Gladys, avec conversion vers les codes Axenco.
+- **Mode du module** est le sélecteur complet EWS, auparavant **Mode Axenco**.
+  Il propose notamment Auto et Boost sur le fil pilote. Les libellés
+  **Confort −1 °C**, **Confort −2 °C** et **Arrêt** remplacent Éco 1K, Éco 2K
+  et Veille sur EWS, sans changer les codes, les valeurs de scènes ni les
+  identifiants des fonctionnalités. Les autres modèles gardent leurs libellés.
+- Auto, Boost et les codes inconnus ne sont pas représentables parmi les six
+  ordres : ce champ conserve alors son dernier ordre connu. Consulter le mode
+  du module observé dans le widget, qui signale cette limite, pour connaître
+  l'état relu. Aucun ordre standard n'est inventé pour ces modes.
 - Le thermostat virtuel de Gladys 5.2 ne sait pas piloter directement un ordre
   fil pilote. Les interrupteurs historiques de modes ne sont pas de véritables
   Marche/Arrêt et ne doivent pas être choisis comme actionneurs binaires.

@@ -82,6 +82,23 @@ export const PRESETS = {
   cooling: { code: 1, label: 'Rafraîchissement' },
 };
 
+// Use Gladys's six-order terminology on EWS without changing Axenco keys or
+// codes. Other models retain their existing manufacturer labels.
+const EWS_PRESET_LABELS = {
+  eco_1: 'Confort −1 °C',
+  eco_2: 'Confort −2 °C',
+  standby: 'Arrêt',
+};
+
+export function presetLabelFor(model, key, code) {
+  const preset = PRESETS[key];
+  return (
+    preset?.labelByCode?.[code] ??
+    (model === 'EWS' ? EWS_PRESET_LABELS[key] : undefined) ??
+    preset?.label
+  );
+}
+
 /**
  * Presets supported per model, in the order `pyaxencoapi` declares them.
  * `EWS_RELAIS` / `EWS_PILOTE` are not Axenco models but the two operating

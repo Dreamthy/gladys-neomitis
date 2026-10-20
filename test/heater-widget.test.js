@@ -206,6 +206,43 @@ test('missing created controls do not produce unusable buttons', async () => {
   assert.deepEqual(commands, []);
 });
 
+test('EWS widget uses the full observed module mode and explains six-order limitations', async () => {
+  const { get, entry } = await widget(
+    axencoThermostat({ model: 'EWS', state: { deviceType: 1, targetMode: 40 } }),
+  );
+  let content = await get();
+  const field = buttons(content)[0].action.fields[0];
+  assert.equal(field.label.fr, 'Mode du module');
+  assert.equal(field.options.find((o) => o.value === 'eco_1').label.fr, 'Confort −1 °C');
+  assert.equal(field.options.find((o) => o.value === 'eco_2').label.fr, 'Confort −2 °C');
+  assert.equal(field.options.find((o) => o.value === 'standby').label.fr, 'Arrêt');
+  const limitation = (items) => items.find((r) => r.label.en === 'Six-order control');
+  assert.equal(limitation(rows(content)), undefined);
+  // A requested mode must not replace the hardware observation in the widget.
+  entry.state.targetMode = 4;
+  assert.equal(rows(await get()).find((r) => r.label.en === 'Module mode').value, 'Confort −1 °C');
+  for (const [code, expected] of [
+    [0, 'Auto'],
+    [60, 'Auto (Confort)'],
+    [61, 'Auto (Éco)'],
+    [6, 'Boost'],
+    [42, 'Inconnu (42)'],
+  ]) {
+    entry.observedState.targetMode = code;
+    content = await get({ show_diagnostics: true });
+    assert.equal(rows(content).find((r) => r.label.en === 'Module mode').value, expected);
+    assert.equal(limitation(rows(content)).color, 'warning');
+  }
+  entry.observedState.targetMode = 4;
+  content = await get();
+  assert.equal(rows(content).find((r) => r.label.en === 'Module mode').value, 'Arrêt');
+  assert.equal(limitation(rows(content)), undefined);
+  const relay = await widget(
+    axencoThermostat({ model: 'EWS', state: { deviceType: 0, targetMode: 60 } }),
+  );
+  assert.equal(limitation(rows(await relay.get())), undefined);
+});
+
 test('setpoint form respects hardware bounds and omits invalid remembered defaults', async () => {
   const { get, gladys } = await widget();
   let field = buttons(await get()).find((b) => b.action.key === 'temperature').action.fields[0];

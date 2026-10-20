@@ -1,4 +1,6 @@
 // Gladys values are not Axenco values. Keep the translation explicit.
+import { PRESETS } from '../axenco/const.js';
+
 export const STANDARD = {
   MODE: 'thermostat-mode',
   TARGET: 'target-temperature',
@@ -17,6 +19,12 @@ export const PILOT_PRESETS = {
   4: 'eco_2',
   5: 'comfort',
 };
+
+/** Auto, Boost and unknown modes have no equivalent among the six orders. */
+export function pilotOrderFromCode(code) {
+  const order = Object.entries(PILOT_PRESETS).find(([, key]) => PRESETS[key].code === code);
+  return order ? Number(order[0]) : undefined;
+}
 
 export function nativeThermostat(entry) {
   // Only the EV30 protocol has been checked on real hardware.

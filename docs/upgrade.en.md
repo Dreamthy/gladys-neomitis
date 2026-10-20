@@ -101,7 +101,13 @@ expanding support requires hardware and gateway validation.
   by a virtual thermostat with a separate room sensor. Its inherited protocol
   still needs testing on your installation.
 - Pilot-wire EWS: **Ordre fil pilote** translates the supported standard modes
-  to Axenco codes. Legacy Auto and Boost remain. Gladys 5.2's virtual thermostat
+  to Axenco codes. The field is now named **Commande fil pilote (6 ordres)**.
+  The full EWS selector is named **Mode du module**, with Auto and Boost on
+  pilot-wire models. EWS labels now use **Confort −1 °C**, **Confort −2 °C**
+  and **Arrêt**, keeping feature IDs, scene values and command codes unchanged.
+  Auto, Boost and unknown modes have no six-order equivalent; that control
+  retains its last known order. The widget displays the observed full mode
+  and flags this limitation. Gladys 5.2's virtual thermostat
   does not accept a pilot-wire mode as its actuator. Legacy preset switches
   ignore OFF and must not be used as binary heating actuators.
 - New devices expose one standard **Fenêtre ouverte** contact when reporting

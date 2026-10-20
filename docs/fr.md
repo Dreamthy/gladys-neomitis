@@ -66,6 +66,11 @@ Il fonctionne de manière autonome : créer un thermostat Gladys est facultatif.
   réveiller le radiateur : reprendre par le mode ou une dérogation explicite.
 - **Mode Axenco** — sélecteur unique des modes propres au modèle : Confort,
   Éco, Auto, Boost, Veille, etc. Il fonctionne sans thermostat Gladys.
+  Sur EWS, il s'appelle **Mode du module** ; Confort −1 °C, Confort −2 °C
+  et Arrêt reprennent la terminologie du fil pilote Gladys. Le champ distinct
+  **Commande fil pilote (6 ordres)** représente uniquement les six ordres
+  standard. En Auto ou Boost, il conserve son dernier ordre connu ; le widget
+  affiche le mode complet observé et signale cette limite.
   L'option **Dérogation (consigne actuelle)**, sur les appareils régulant une
   température, réutilise la dernière consigne Axenco observée. Pour choisir une
   autre température, régler **Température de consigne** ou utiliser le widget.
@@ -184,12 +189,29 @@ _Mode actuel (compatibilité)_ reste disponible seulement s'il existe déjà.
 
 ## État de vérification par modèle
 
-Tout ce qui suit concerne le **protocole**, identique pour tous les modèles :
-`auto` s'écrit `targetMode: 0`, la dérogation n'est pas un mode sélectionnable,
-et une consigne s'envoie `targetTemp` + `overrideTemp` + `targetMode: 8`. Ces
-trois points valent donc aussi pour les modèles ci-dessous marqués « hérité ».
+Les observations sur EV30 et EWS ne valident pas le protocole des autres
+modèles. L'intégration conserve actuellement `targetMode: 0` pour Auto sur
+tous les profils qui le proposent. Les appareils principaux partagent la
+commande de consigne `targetTemp` + `overrideTemp` + `targetMode: 8`, capturée
+sur EV30 ; NTD et ETRV passent par leur passerelle avec `targetTemp` seul.
+Cette généralisation aux appareils non testés reste à vérifier.
 
-Ce qui reste propre à chaque modèle, c'est la **liste des modes**.
+La comparaison du 20 octobre 2026 porte sur le
+[code Home Assistant MyNeomitis](https://github.com/home-assistant/core/tree/dev/homeassistant/components/myneomitis)
+et sa dépendance `pyaxencoapi==1.0.7`, dont le dépôt indiqué est
+[`AXENCO-FR/ha-py-axenco-api`](https://github.com/AXENCO-FR/ha-py-axenco-api).
+Ces sources utilisent Auto `60` et, pour la consigne d'un appareil principal,
+`overrideTemp` seul. Elles servent à identifier des divergences, pas à
+remplacer les commandes existantes sans validation propre au modèle.
+
+La dernière version publiée sur [PyPI](https://pypi.org/project/pyaxencoapi/)
+est toutefois **1.0.9**, du 21 avril 2026. La comparaison des archives 1.0.7
+et 1.0.9 montre une extraction de l'identifiant de passerelle depuis
+`parents` et une réorganisation des tables de modes par modèle (dont EWS et
+UFH). Cette intégration gère déjà ces routes et ces tables. La 1.0.9 conserve
+Auto `60` et `overrideTemp` seul : elle ne résout donc pas les divergences
+observées sur EV30. Home Assistant reste une source distincte de la dernière
+version de sa bibliothèque.
 
 | Modèle                               | Liste des modes           | Routage des commandes            |
 | ------------------------------------ | ------------------------- | -------------------------------- |
@@ -201,9 +223,10 @@ Ce qui reste propre à chaque modèle, c'est la **liste des modes**.
 | `NTD`, `ETRV`                        | hérité de `pyaxencoapi`   | hérité, passerelle jamais testée |
 | `UFH`                                | hérité de `pyaxencoapi`   | hérité, passerelle jamais testée |
 
-« Hérité » veut dire : le comportement de la librairie de référence, conservé
-tel quel faute de matériel pour le vérifier. Or cette librairie s'est trompée
-sur deux points au moins, donc traitez ces lignes comme des hypothèses.
+« Hérité » décrit l'origine de la liste ou du routage, pas une certification
+matérielle ni une identité complète avec la bibliothèque actuelle. Les tests
+automatisés vérifient les commandes sérialisées et des retours simulés pour
+chaque profil ; ils ne prouvent pas leur application par un appareil réel.
 
 Le cas le plus douteux est `comfort_plus` (code 20), que `pyaxencoapi` attribue
 aux `ECTRL` / `ESTAT` / `RSS-ECTRL`. Il est ignoré par un EV30 et par un EWS,

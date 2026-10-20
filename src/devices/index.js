@@ -11,6 +11,7 @@
 
 import {
   PRESETS,
+  presetLabelFor,
   presetKeyFromCode,
   presetKeysFor,
   selectablePresetKeys,
@@ -18,7 +19,13 @@ import {
 import { extractGatewayId } from '../axenco/utils.js';
 import { selectorFromExternalId } from '../selector.js';
 import { profileFor } from './profiles.js';
-import { STANDARD, PILOT_PRESETS, binary, validateTemperature } from './standard.js';
+import {
+  STANDARD,
+  PILOT_PRESETS,
+  pilotOrderFromCode,
+  binary,
+  validateTemperature,
+} from './standard.js';
 import {
   DEVICE_TYPE,
   FEATURE,
@@ -122,7 +129,7 @@ export function modeLabel(entry, state = entry.observedState || entry.state) {
   const code = state[entry.profile.presetStateKey];
   if (!isNumber(code)) return undefined;
   const key = presetKeyFromCode(entry.presetKeys, code);
-  return key ? (PRESETS[key].labelByCode?.[code] ?? PRESETS[key].label) : `Inconnu (${code})`;
+  return key ? presetLabelFor(entry.model, key, code) : `Inconnu (${code})`;
 }
 
 /**
@@ -207,8 +214,8 @@ export function buildStates(entry, patch) {
     }
   }
   if (isNumber(modeCode)) {
-    const pilot = Object.entries(PILOT_PRESETS).find(([, key]) => PRESETS[key].code === modeCode);
-    if (pilot) push(STANDARD.PILOT, Number(pilot[0]));
+    const pilot = pilotOrderFromCode(modeCode);
+    if (pilot !== undefined) push(STANDARD.PILOT, pilot);
     if (entry.model === 'EV30' && presetKeyFromCode(presetKeys, modeCode))
       push(STANDARD.MODE, modeCode === PRESETS.standby.code ? 0 : 1);
   }
