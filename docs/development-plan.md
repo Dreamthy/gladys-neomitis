@@ -39,9 +39,13 @@ Ces points ne peuvent pas être validés par les tests logiciels seuls :
 - [ ] Mesurer les limites de dérogation avant d'autoriser des températures inférieures au minimum annoncé par l'appareil. Si ce minimum vaut 16 °C, le développement ne prétend pas fournir une consigne Hors gel numérique à 7 °C.
 - [ ] Vérifier la suspension et la reprise du thermostat Gladys lors d'une détection d'ouverture.
 - [ ] Vérifier les commandes du relais EWS sur le matériel, puis valider le couple natif et les séquences arrêt/reprise sur ECTRL, ESTAT, RSS-ECTRL, NTD et ETRV. La prise en charge logicielle ne remplace pas ces essais.
-- [ ] Construire et tester l'image Docker, puis publier et déployer la version suivant le circuit de release.
+- [x] Construire les images de test pour amd64 et arm64 et valider leurs manifestes avec le validateur officiel.
+- [ ] Tester le déploiement de la version officielle avec le thermostat Gladys sur l'installation de l'utilisateur.
 
 Aucune nouvelle commande Axenco n'est inventée pour les matériels non vérifiés.
 Le thermostat virtuel Gladys ne pilote pas directement les ordres fil pilote.
 Les tests automatisés utilisent des doubles : ils ne commandent pas le chauffage.
-La publication officielle et le déploiement restent à effectuer ; les images de test sont publiées sur la branche dédiée.
+Les premiers essais de l'utilisateur semblent concluants sur son installation ;
+le test avec le thermostat Gladys reste à réaliser. La publication ne signifie
+pas que ces vérifications matérielles sont terminées. Les résultats et les
+conditions de migration sont consignés dans les [notes de version](../CHANGELOG.md).
